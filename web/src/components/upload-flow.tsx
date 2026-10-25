@@ -2,13 +2,14 @@
 
 import { upload } from "@vercel/blob/client";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AnalysisSteps, type AnalysisStep } from "@/components/analysis-steps";
 import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { formatBytes, formatSeconds, formatTimecode } from "@/lib/format";
 import { contentTypeFor, MAX_BYTES, MAX_DURATION_S } from "@/lib/limits";
+import { takePendingUpload } from "@/lib/pending-upload";
 import type { Report } from "@/lib/report";
 import { saveReport } from "@/lib/report-store";
 
@@ -173,6 +174,19 @@ export function UploadFlow({ storage, analysis }: UploadFlowProps) {
     }
     await uploadThenAnalyze(file, meta);
   }
+
+  // A file dropped on the landing page starts here. Taken inside the timer so a Strict Mode
+  // remount (which clears the first timer) still picks it up.
+  const onPendingFile = useEffectEvent((file: File) => {
+    void start(file);
+  });
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const file = takePendingUpload();
+      if (file) onPendingFile(file);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   if (phase.kind === "idle" || phase.kind === "reading") {
     return (

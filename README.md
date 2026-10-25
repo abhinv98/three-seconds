@@ -11,6 +11,8 @@ npm test           # validates the fixture against shared/report.schema.json
 npm run build
 ```
 
+Routes: `/` landing page, `/check` upload tool, `/report/[id]` report (`/report/sample` plays the sample Reel in `web/public/sample`).
+
 Environment (`web/.env.local`, see `web/.env.example`):
 
 - `BLOB_READ_WRITE_TOKEN`: Vercel Blob token. Without it, `npm run dev` keeps the video in the browser tab instead of uploading.

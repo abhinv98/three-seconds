@@ -3,26 +3,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 import { cn } from "@/lib/utils"
 
-// Design system Button: one primary per view; sm 36 for dense desktop rows, md 44, lg 52.
+// Tactile glossy buttons (see .btn-gloss in globals.css): a lit top edge, a shaded bottom,
+// scale(0.97) on press. One primary per view; sm 36 for dense rows, md 44, lg 52.
 // Focus uses the global 2px ring with 2px offset from tokens.css.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md border-[1.5px] border-transparent font-semibold whitespace-nowrap transition-colors duration-[120ms] ease-out select-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-2 font-bold whitespace-nowrap select-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
-        brand: "bg-brand text-brand-foreground hover:bg-brand-hover",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary-hover",
-        outline: "border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
-        ghost: "bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive-hover",
+        primary: "btn-gloss btn-gloss-primary",
+        brand: "btn-gloss btn-gloss-brand",
+        secondary: "btn-gloss btn-gloss-secondary",
+        outline: "btn-gloss btn-gloss-secondary",
+        ghost: "bg-transparent text-foreground transition-colors duration-[120ms] ease-out hover:bg-accent hover:text-accent-foreground",
+        destructive: "btn-gloss btn-gloss-destructive",
       },
       size: {
-        sm: "h-9 px-3 text-sm",
-        md: "h-11 px-4 text-[15px]",
-        lg: "h-[52px] px-5 text-base",
-        icon: "size-11",
-        "icon-sm": "size-9",
+        sm: "h-9 rounded-[10px] px-3.5 text-sm",
+        md: "h-11 rounded-[12px] px-5 text-[15px]",
+        lg: "h-[52px] rounded-[12px] px-7 text-[17px]",
+        icon: "size-11 rounded-[10px]",
+        "icon-sm": "size-9 rounded-[10px]",
       },
     },
     defaultVariants: {

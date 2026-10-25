@@ -13,8 +13,9 @@ import { bySeverity, type Report } from "@/lib/report";
 import { useStoredReport } from "@/lib/report-store";
 import { spokenMarkers, timelineSummary } from "@/lib/summary";
 
-export function ReportView({ id }: { id: string }) {
-  const report = useStoredReport(id);
+export function ReportView({ id, report: given }: { id: string; report?: Report }) {
+  const stored = useStoredReport(id);
+  const report = given ?? stored;
   if (report === undefined) return <ReportSkeleton />;
   if (report === null) return <ReportMissing />;
   if (report.status === "error") return <ReportFailed />;
@@ -197,7 +198,7 @@ function ReportMissing() {
           For now, reports live only in the browser tab that ran the check. Run the check again to see it.
         </p>
         <Button asChild className="mt-6">
-          <Link href="/">
+          <Link href="/check">
             <Icon name="upload" size={18} />
             Check a video
           </Link>
@@ -216,7 +217,7 @@ function ReportFailed() {
           Something went wrong while checking this video. Upload it again to retry.
         </p>
         <Button asChild className="mt-6">
-          <Link href="/">
+          <Link href="/check">
             <Icon name="refresh" size={18} />
             Check again
           </Link>
