@@ -1,0 +1,247 @@
+/* Three Seconds design tokens v1.1. Primitive -> semantic -> component. Generated from the design system. */
+/* Fonts: Mukta and JetBrains Mono load through next/font in app/layout.tsx (same families and weights as the
+   design system's Google Fonts link), exposed as --font-mukta and --font-jetbrains-mono. */
+
+:root {
+  /* 1. Primitives: never use in components */
+  --paper-0: #ffffff;
+  --paper-50: #fbfaf6;
+  --paper-100: #f3f1ea;
+  --paper-200: #e8e5dc;
+  --paper-300: #c9c5ba;
+  --stone-400: #9a978f;
+  --stone-500: #7a776f;
+  --stone-600: #5f5d57;
+  --stone-700: #45433f;
+  --ink-700: #3a3936;
+  --ink-800: #2a2927;
+  --ink-850: #222220;
+  --ink-900: #1a1a19;
+  --ink-950: #121212;
+  --signal-100: #fbe2d5;
+  --signal-300: #f59a6e;
+  --signal-400: #f0703a;
+  --signal-500: #ea4e12;
+  --signal-600: #c9400c;
+  --signal-700: #a9360a;
+  --signal-900: #3a1a0c;
+  --pass-100: #d6eeef;
+  --pass-400: #48bcc6;
+  --pass-600: #0a7883;
+  --pass-700: #07606a;
+  --pass-900: #0e2c30;
+  --fail-100: #f8dce0;
+  --fail-400: #f37a88;
+  --fail-600: #b3152f;
+  --fail-700: #930f26;
+  --fail-900: #3a1219;
+  --review-100: #f7e8c4;
+  --review-300: #f2bd45;
+  --review-400: #e6a62a;
+  --review-700: #835200;
+  --review-900: #33270f;
+
+  /* Type families */
+  --font-sans: var(--font-mukta), "Mukta", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --font-deva: var(--font-mukta), "Mukta", "Noto Sans Devanagari", sans-serif;
+
+  /* Space (4px base) */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  /* Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+  /* Stroke */
+  --stroke-hairline: 1px;
+  --stroke-control: 1.5px;
+  --stroke-focus: 2px;
+  --stroke-playhead: 2px;
+  --stroke-icon: 2px;
+  /* Motion */
+  --motion-press: 120ms ease-out;
+  --motion-progress: 200ms linear;
+}
+
+/* 2 and 3. Semantic and component tokens. Paper (light) is the default. */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --background: var(--paper-100);
+  --foreground: var(--ink-950);
+  --card: var(--paper-50);
+  --card-foreground: var(--ink-950);
+  --popover: var(--paper-50);
+  --popover-foreground: var(--ink-950);
+  --muted: var(--paper-200);
+  --muted-foreground: var(--stone-600);
+  --secondary: var(--paper-200);
+  --secondary-foreground: var(--ink-950);
+  --secondary-hover: var(--paper-300);
+  --accent: var(--paper-200);
+  --accent-foreground: var(--ink-950);
+  --primary: var(--ink-950);
+  --primary-foreground: var(--paper-100);
+  --primary-hover: var(--ink-800);
+  --brand: var(--signal-500);
+  --brand-foreground: var(--ink-950);
+  --brand-hover: var(--signal-400);
+  --brand-text: var(--signal-700);
+  --brand-surface: var(--signal-100);
+  --border: var(--paper-300);
+  --input: var(--stone-500);
+  --ring: var(--signal-600);
+  --destructive: var(--fail-600);
+  --destructive-foreground: var(--paper-50);
+  --destructive-hover: var(--fail-700);
+  --pass: var(--pass-600);
+  --pass-foreground: var(--paper-50);
+  --pass-text: var(--pass-700);
+  --pass-surface: var(--pass-100);
+  --fail: var(--fail-600);
+  --fail-foreground: var(--paper-50);
+  --fail-text: var(--fail-700);
+  --fail-surface: var(--fail-100);
+  --review: var(--review-300);
+  --review-foreground: var(--ink-950);
+  --review-text: var(--review-700);
+  --review-surface: var(--review-100);
+  --timeline-track: var(--paper-200);
+  --timeline-hold: var(--ink-950);
+  --timeline-window: var(--signal-600);
+  --timeline-gap: var(--fail-600);
+  --timeline-playhead: var(--signal-500);
+  --chat-in: var(--paper-0);
+  --chat-out: var(--signal-100);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: var(--ink-950);
+  --foreground: var(--paper-100);
+  --card: var(--ink-900);
+  --card-foreground: var(--paper-100);
+  --popover: var(--ink-900);
+  --popover-foreground: var(--paper-100);
+  --muted: var(--ink-850);
+  --muted-foreground: var(--stone-400);
+  --secondary: var(--ink-850);
+  --secondary-foreground: var(--paper-100);
+  --secondary-hover: var(--ink-700);
+  --accent: var(--ink-800);
+  --accent-foreground: var(--paper-100);
+  --primary: var(--paper-100);
+  --primary-foreground: var(--ink-950);
+  --primary-hover: var(--paper-200);
+  --brand: var(--signal-500);
+  --brand-foreground: var(--ink-950);
+  --brand-hover: var(--signal-400);
+  --brand-text: var(--signal-400);
+  --brand-surface: var(--signal-900);
+  --border: var(--ink-700);
+  --input: var(--stone-500);
+  --ring: var(--signal-400);
+  --destructive: var(--fail-400);
+  --destructive-foreground: var(--ink-950);
+  --destructive-hover: var(--fail-100);
+  --pass: var(--pass-400);
+  --pass-foreground: var(--ink-950);
+  --pass-text: var(--pass-400);
+  --pass-surface: var(--pass-900);
+  --fail: var(--fail-400);
+  --fail-foreground: var(--ink-950);
+  --fail-text: var(--fail-400);
+  --fail-surface: var(--fail-900);
+  --review: var(--review-300);
+  --review-foreground: var(--ink-950);
+  --review-text: var(--review-400);
+  --review-surface: var(--review-900);
+  --timeline-track: var(--ink-850);
+  --timeline-hold: var(--paper-100);
+  --timeline-window: var(--signal-400);
+  --timeline-gap: var(--fail-400);
+  --timeline-playhead: var(--signal-500);
+  --chat-in: var(--ink-800);
+  --chat-out: var(--signal-900);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: var(--ink-950);
+    --foreground: var(--paper-100);
+    --card: var(--ink-900);
+    --card-foreground: var(--paper-100);
+    --popover: var(--ink-900);
+    --popover-foreground: var(--paper-100);
+    --muted: var(--ink-850);
+    --muted-foreground: var(--stone-400);
+    --secondary: var(--ink-850);
+    --secondary-foreground: var(--paper-100);
+    --secondary-hover: var(--ink-700);
+    --accent: var(--ink-800);
+    --accent-foreground: var(--paper-100);
+    --primary: var(--paper-100);
+    --primary-foreground: var(--ink-950);
+    --primary-hover: var(--paper-200);
+    --brand: var(--signal-500);
+    --brand-foreground: var(--ink-950);
+    --brand-hover: var(--signal-400);
+    --brand-text: var(--signal-400);
+    --brand-surface: var(--signal-900);
+    --border: var(--ink-700);
+    --input: var(--stone-500);
+    --ring: var(--signal-400);
+    --destructive: var(--fail-400);
+    --destructive-foreground: var(--ink-950);
+    --destructive-hover: var(--fail-100);
+    --pass: var(--pass-400);
+    --pass-foreground: var(--ink-950);
+    --pass-text: var(--pass-400);
+    --pass-surface: var(--pass-900);
+    --fail: var(--fail-400);
+    --fail-foreground: var(--ink-950);
+    --fail-text: var(--fail-400);
+    --fail-surface: var(--fail-900);
+    --review: var(--review-300);
+    --review-foreground: var(--ink-950);
+    --review-text: var(--review-400);
+    --review-surface: var(--review-900);
+    --timeline-track: var(--ink-850);
+    --timeline-hold: var(--paper-100);
+    --timeline-window: var(--signal-400);
+    --timeline-gap: var(--fail-400);
+    --timeline-playhead: var(--signal-500);
+    --chat-in: var(--ink-800);
+    --chat-out: var(--signal-900);
+  }
+}
+
+body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+
+/* Type styles */
+.ts-display { font-family: var(--font-sans); font-size: 56px; line-height: 56px; font-weight: 800; letter-spacing: -0.01em; }
+.ts-headline { font-family: var(--font-sans); font-size: 32px; line-height: 36px; font-weight: 700; letter-spacing: -0.005em; }
+.ts-title { font-family: var(--font-sans); font-size: 20px; line-height: 26px; font-weight: 600; letter-spacing: 0; }
+.ts-body { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 400; letter-spacing: 0; }
+.ts-body-sm { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; letter-spacing: 0; }
+.ts-label { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ts-caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; letter-spacing: 0; }
+.ts-readout { font-family: var(--font-mono); font-size: 40px; line-height: 44px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ts-timecode { font-family: var(--font-mono); font-size: 13px; line-height: 16px; font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.ts-code { font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.ts-transcript-deva { font-family: var(--font-deva); font-size: 17px; line-height: 28px; font-weight: 400; letter-spacing: 0; }
+
+:focus-visible { outline: var(--stroke-focus) solid var(--ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }

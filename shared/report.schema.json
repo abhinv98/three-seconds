@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://three-seconds.app/schemas/report.schema.json",
+  "title": "Three Seconds report",
+  "description": "Single source of truth for the report contract shared by web/ and worker/. Times are seconds from the start of the video.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "status",
+    "mock",
+    "video",
+    "verdict",
+    "checks",
+    "tracks",
+    "transcript",
+    "models_used",
+    "generated_at"
+  ],
+  "properties": {
+    "job_id": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["done", "error"] },
+    "mock": { "type": "boolean" },
+    "video": { "$ref": "#/$defs/video" },
+    "verdict": { "$ref": "#/$defs/verdict" },
+    "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+    "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" } },
+    "transcript": { "type": "array", "items": { "$ref": "#/$defs/transcript_segment" } },
+    "models_used": { "type": "array", "items": { "type": "string" } },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "seconds": { "type": "number", "minimum": 0 },
+    "verdict": { "enum": ["PASS", "FAIL", "REVIEW"] },
+    "video": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filename", "blob_url", "duration_s", "width", "height", "fps_sampled"],
+      "properties": {
+        "filename": { "type": "string", "minLength": 1 },
+        "blob_url": { "type": "string", "minLength": 1 },
+        "duration_s": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "fps_sampled": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "clause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "text", "source_url"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "source_url": { "type": ["string", "null"] }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t_start", "t_end", "kind", "note"],
+      "properties": {
+        "t_start": { "$ref": "#/$defs/seconds" },
+        "t_end": { "$ref": "#/$defs/seconds" },
+        "kind": { "enum": ["frame", "audio"] },
+        "note": { "type": "string" }
+      }
+    },
+    "fix": {
+      "description": "What to change. Optional extension: the design system requires a fix on every FAIL and REVIEW.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "verdict", "detail", "clause", "evidence"],
+      "properties": {
+        "id": { "enum": ["label_present", "label_duration", "spoken_disclosure", "label_language"] },
+        "title": { "type": "string", "minLength": 1 },
+        "verdict": { "$ref": "#/$defs/verdict" },
+        "detail": { "type": "string" },
+        "clause": { "oneOf": [{ "$ref": "#/$defs/clause" }, { "type": "null" }] },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },
+        "fix": { "oneOf": [{ "$ref": "#/$defs/fix" }, { "type": "null" }] }
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t_start", "t_end"],
+      "properties": {
+        "t_start": { "$ref": "#/$defs/seconds" },
+        "t_end": { "$ref": "#/$defs/seconds" }
+      }
+    },
+    "track": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "kind",
+        "spans",
+        "first_seen_s",
+        "last_seen_s",
+        "total_on_screen_s",
+        "max_frame_share"
+      ],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["disclosure_label", "brand"] },
+        "spans": { "type": "array", "items": { "$ref": "#/$defs/span" } },
+        "first_seen_s": { "oneOf": [{ "$ref": "#/$defs/seconds" }, { "type": "null" }] },
+        "last_seen_s": { "oneOf": [{ "$ref": "#/$defs/seconds" }, { "type": "null" }] },
+        "total_on_screen_s": { "$ref": "#/$defs/seconds" },
+        "max_frame_share": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "transcript_segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t_start", "t_end", "text", "lang"],
+      "properties": {
+        "t_start": { "$ref": "#/$defs/seconds" },
+        "t_end": { "$ref": "#/$defs/seconds" },
+        "text": { "type": "string" },
+        "lang": { "type": "string", "description": "BCP 47 tag: en, hi-Latn (Hinglish in Latin script), hi-Deva." }
+      }
+    }
+  }
+}

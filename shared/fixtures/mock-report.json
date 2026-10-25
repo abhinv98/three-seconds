@@ -1,0 +1,119 @@
+{
+  "job_id": "mock-0001",
+  "status": "done",
+  "mock": true,
+  "video": {
+    "filename": "glow-serum-reel.mp4",
+    "blob_url": "https://example.invalid/glow-serum-reel.mp4",
+    "duration_s": 28.0,
+    "width": 1080,
+    "height": 1920,
+    "fps_sampled": 5
+  },
+  "verdict": "FAIL",
+  "checks": [
+    {
+      "id": "label_present",
+      "title": "Disclosure label on screen",
+      "verdict": "PASS",
+      "detail": "\"Paid partnership\" label on screen from 00:00.4.",
+      "clause": {
+        "code": "ASCI-PENDING",
+        "text": "Clause text to be verified against the ASCI guideline",
+        "source_url": null
+      },
+      "evidence": [
+        { "t_start": 0.4, "t_end": 2.2, "kind": "frame", "note": "\"Paid partnership\" label, top left" }
+      ],
+      "fix": null
+    },
+    {
+      "id": "label_duration",
+      "title": "Label held long enough",
+      "verdict": "FAIL",
+      "detail": "Label held 1.8s. It is gone before the brand appears at 00:03.0. Required hold not yet verified.",
+      "clause": {
+        "code": "ASCI-PENDING",
+        "text": "Clause text to be verified against the ASCI guideline",
+        "source_url": null
+      },
+      "evidence": [
+        { "t_start": 0.4, "t_end": 2.2, "kind": "frame", "note": "Label on screen" },
+        { "t_start": 3.0, "t_end": 7.5, "kind": "frame", "note": "Brand on screen, no label" },
+        { "t_start": 12.0, "t_end": 16.4, "kind": "frame", "note": "Brand on screen, no label" },
+        { "t_start": 22.5, "t_end": 27.0, "kind": "frame", "note": "Brand on screen, no label" }
+      ],
+      "fix": {
+        "steps": ["Keep the label on screen for as long as the brand is visible, 00:03.0 to 00:27.0."]
+      }
+    },
+    {
+      "id": "spoken_disclosure",
+      "title": "Spoken disclosure",
+      "verdict": "PASS",
+      "detail": "Said at 00:21.0: \"Yeh video sponsored hai.\"",
+      "clause": {
+        "code": "ASCI-PENDING",
+        "text": "Clause text to be verified against the ASCI guideline",
+        "source_url": null
+      },
+      "evidence": [
+        { "t_start": 21.0, "t_end": 22.4, "kind": "audio", "note": "\"Yeh video sponsored hai.\" Hinglish" }
+      ],
+      "fix": null
+    },
+    {
+      "id": "label_language",
+      "title": "Label language matches speech",
+      "verdict": "REVIEW",
+      "detail": "Label is in English. Speech is Hinglish. Whether they must match is not yet verified.",
+      "clause": {
+        "code": "ASCI-PENDING",
+        "text": "Clause text to be verified against the ASCI guideline",
+        "source_url": null
+      },
+      "evidence": [
+        { "t_start": 0.4, "t_end": 2.2, "kind": "frame", "note": "Label text \"Paid partnership\", English" },
+        { "t_start": 0.5, "t_end": 27.6, "kind": "audio", "note": "Speech, mostly Hinglish" }
+      ],
+      "fix": {
+        "steps": ["Add a Hindi label next to the English one, for example \"सशुल्क साझेदारी\"."]
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "label": "Paid partnership label",
+      "kind": "disclosure_label",
+      "spans": [{ "t_start": 0.4, "t_end": 2.2 }],
+      "first_seen_s": 0.4,
+      "last_seen_s": 2.2,
+      "total_on_screen_s": 1.8,
+      "max_frame_share": 0.04
+    },
+    {
+      "label": "Saanjh Skin logo",
+      "kind": "brand",
+      "spans": [
+        { "t_start": 3.0, "t_end": 7.5 },
+        { "t_start": 12.0, "t_end": 16.4 },
+        { "t_start": 22.5, "t_end": 27.0 }
+      ],
+      "first_seen_s": 3.0,
+      "last_seen_s": 27.0,
+      "total_on_screen_s": 13.4,
+      "max_frame_share": 0.18
+    }
+  ],
+  "transcript": [
+    { "t_start": 0.5, "t_end": 3.6, "text": "Hey guys, aaj ka morning routine bahut simple hai.", "lang": "hi-Latn" },
+    { "t_start": 4.0, "t_end": 8.4, "text": "Yeh Saanjh Skin ka vitamin C serum hai, do hafte se use kar rahi hoon.", "lang": "hi-Latn" },
+    { "t_start": 9.0, "t_end": 14.6, "text": "Texture dekho, ekdum lightweight, aur skin pe sticky bhi nahi lagta.", "lang": "hi-Latn" },
+    { "t_start": 15.2, "t_end": 20.4, "text": "Subah moisturiser se pehle bas do drops.", "lang": "hi-Latn" },
+    { "t_start": 21.0, "t_end": 22.4, "text": "Yeh video sponsored hai.", "lang": "hi-Latn" },
+    { "t_start": 22.6, "t_end": 24.8, "text": "Link bio mein hai.", "lang": "hi-Latn" },
+    { "t_start": 25.2, "t_end": 27.6, "text": "Try karke batao kaisa laga!", "lang": "hi-Latn" }
+  ],
+  "models_used": ["mock-fixture"],
+  "generated_at": "2026-10-25T18:30:00Z"
+}

@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./tokens.css";
+
+/* App-level component tokens. The video plate stays ink in Paper, one step up from the ground in Ink. */
+:root,
+[data-theme="light"] {
+  --viewer-plate: var(--ink-950);
+  --viewer-plate-foreground: var(--paper-100);
+}
+[data-theme="dark"] {
+  --viewer-plate: var(--ink-900);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --viewer-plate: var(--ink-900);
+  }
+}
+
+/* Themes switch through data-theme on <html> (see tokens.css). No attribute means "follow the OS". */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* Tailwind v4 mapping (design system, Appendix B). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-text: var(--brand-text);
+  --color-brand-surface: var(--brand-surface);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-pass: var(--pass);
+  --color-pass-foreground: var(--pass-foreground);
+  --color-pass-text: var(--pass-text);
+  --color-pass-surface: var(--pass-surface);
+  --color-fail: var(--fail);
+  --color-fail-foreground: var(--fail-foreground);
+  --color-fail-text: var(--fail-text);
+  --color-fail-surface: var(--fail-surface);
+  --color-review: var(--review);
+  --color-review-foreground: var(--review-foreground);
+  --color-review-text: var(--review-text);
+  --color-review-surface: var(--review-surface);
+  --color-timeline-track: var(--timeline-track);
+  --color-timeline-hold: var(--timeline-hold);
+  --color-timeline-window: var(--timeline-window);
+  --color-timeline-gap: var(--timeline-gap);
+  --color-timeline-playhead: var(--timeline-playhead);
+  --color-chat-in: var(--chat-in);
+  --color-chat-out: var(--chat-out);
+  --color-viewer-plate: var(--viewer-plate);
+  --color-viewer-plate-foreground: var(--viewer-plate-foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    min-height: 100dvh;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--brand-surface);
+    color: var(--foreground);
+  }
+}
+
+/* Fixed type scale, one step down on narrow screens (360px first). */
+@media (max-width: 599px) {
+  .ts-display {
+    font-size: 40px;
+    line-height: 44px;
+  }
+  .ts-readout {
+    font-size: 32px;
+    line-height: 36px;
+  }
+}
