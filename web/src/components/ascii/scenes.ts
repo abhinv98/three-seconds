@@ -1,4 +1,4 @@
-import { SAMPLE_REPORT } from "@/lib/mock";
+﻿import { SAMPLE_REPORT } from "@/lib/mock";
 import { TONE, type AsciiFrame, type AsciiScene } from "./ascii-canvas";
 
 // Procedural scenes for the landing page. Every scene writes a 0..1 level and a tone per cell.
@@ -14,10 +14,6 @@ export const SPOKEN_AT = SAMPLE_REPORT.checks
   .find((e) => e.kind === "audio");
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
-const smoothstep = (a: number, b: number, x: number) => {
-  const t = clamp01((x - a) / (b - a));
-  return t * t * (3 - 2 * t);
-};
 const easeOut = (x: number) => 1 - (1 - clamp01(x)) ** 3;
 
 function hash(x: number, y: number, z: number) {
@@ -199,56 +195,6 @@ export const reelScene: AsciiScene = (frame: AsciiFrame) => {
   }
 };
 
-/** The label-only moment of the Reel, looping 0..2.6s, for the "Label on screen" tile. */
-export const labelMomentScene: AsciiScene = (frame) => reelScene(frame);
-
-export interface FieldPointer {
-  /** Pointer position in 0..1 of the field, or null when away. */
-  x: number | null;
-  y: number | null;
-  /** Spring-smoothed strength 0..1. */
-  strength: number;
-}
-
-/**
- * The hero's living character grid: clusters drift through value noise, single cells twinkle,
- * and glyphs thicken under the pointer. `clear` keeps the area behind the headline quiet.
- */
-export function makeFieldScene(clear: (u: number, v: number) => number): {
-  scene: AsciiScene;
-  setPointer: (pointer: FieldPointer) => void;
-} {
-  let p: FieldPointer = { x: null, y: null, strength: 0 };
-  const setPointer = (next: FieldPointer) => {
-    p = next;
-  };
-  const scene: AsciiScene = ({ cols, rows, t, level, tone }) => {
-    const twinkle = Math.floor(t * 3);
-    for (let r = 0; r < rows; r++) {
-      const v = (r + 0.5) / rows;
-      for (let c = 0; c < cols; c++) {
-        const u = (c + 0.5) / cols;
-        const i = r * cols + c;
-        const n = valueNoise(c * 0.16 + t * 0.06, r * 0.24 - t * 0.04, 7);
-        let value = smoothstep(0.6, 0.92, n) * 0.5;
-        if (hash(c, r, twinkle) > 0.996) value = 0.75;
-        let k: number = TONE.faint;
-        if (p.x !== null && p.y !== null && p.strength > 0.01) {
-          const dx = (u - p.x) * cols;
-          const dy = (v - p.y) * rows * 1.6;
-          const near = Math.exp(-(dx * dx + dy * dy) / 60) * p.strength;
-          if (near > 0.04) {
-            value = Math.max(value, near * (0.55 + 0.45 * hash(c, r, twinkle)));
-            if (near > 0.3) k = TONE.muted;
-          }
-        }
-        level[i] = value * clear(u, v);
-        tone[i] = k;
-      }
-    }
-  };
-  return { scene, setPointer };
-}
 
 /** Label hold as a bar: the held stretch dense, the rest of the video dotted, the playhead in signal. */
 export const holdScene: AsciiScene = ({ cols, rows, t, level, tone }) => {
@@ -314,73 +260,3 @@ export const waveScene: AsciiScene = ({ cols, rows, t, level, tone }) => {
     }
   }
 };
-
-// The 3s mark (design system Appendix C) as Path2D strokes.
-const MARK_PATHS = [
-  "M23.8 9.6 C23 8.4 22 8 20.7 8 C18.8 8 17.5 9.2 17.5 10.9 C17.5 12.8 19.1 13.6 20.8 14.3 C22.7 15.1 24.1 15.9 24.1 18 C24.1 20.2 22.5 21.5 20.5 21.5 H3.5",
-  "M3.5 3.5 H8.5 A4.25 4.25 0 0 1 8.5 12 A4.75 4.75 0 0 1 8.5 21.5",
-  "M8.5 12 H6",
-];
-
-/** The mark rasterised into the grid, scanned by a signal-orange playhead, with a living shimmer. */
-export function makeMarkScene(): AsciiScene {
-  let cacheKey = "";
-  let mask = new Float32Array(0);
-  return ({ cols, rows, t, cellAspect, level, tone }) => {
-    const key = `${cols}x${rows}`;
-    if (key !== cacheKey) {
-      cacheKey = key;
-      mask = new Float32Array(cols * rows);
-      const scale = 4;
-      const canvas = document.createElement("canvas");
-      canvas.width = cols * scale;
-      canvas.height = rows * scale;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        // Cells are taller than wide, so a unit of height spans fewer rows than a unit of width
-        // spans columns: scale y by the cell aspect to keep the mark's proportions on screen.
-        const pxPerUnit = Math.min(canvas.width / 26, canvas.height / (24 * cellAspect)) * 0.92;
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.scale(pxPerUnit, pxPerUnit * cellAspect);
-        ctx.translate(-13.8, -12.5);
-        ctx.lineWidth = 3.5;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = "#000";
-        for (const d of MARK_PATHS) ctx.stroke(new Path2D(d));
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        for (let r = 0; r < rows; r++) {
-          for (let c = 0; c < cols; c++) {
-            let sum = 0;
-            for (let yy = 0; yy < scale; yy++) {
-              for (let xx = 0; xx < scale; xx++) {
-                sum += data[((r * scale + yy) * canvas.width + (c * scale + xx)) * 4 + 3];
-              }
-            }
-            mask[r * cols + c] = sum / (scale * scale * 255);
-          }
-        }
-      }
-    }
-    const scan = ((t % 5) / 5) * (cols + 16) - 8;
-    const flicker = Math.floor(t * 6);
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const i = r * cols + c;
-        const m = mask[i];
-        const dist = Math.abs(c - scan);
-        const noise = valueNoise(c * 0.3 + t * 0.4, r * 0.3, 2);
-        if (m > 0.05) {
-          level[i] = clamp01(0.45 + m * 0.55 + (hash(c, r, flicker) - 0.5) * 0.25);
-          tone[i] = dist < 1.2 ? TONE.signal : TONE.fg;
-        } else if (dist < 0.8) {
-          level[i] = 0.25;
-          tone[i] = TONE.signal;
-        } else {
-          level[i] = smoothstep(0.82, 0.97, noise) * 0.3;
-          tone[i] = TONE.faint;
-        }
-      }
-    }
-  };
-}

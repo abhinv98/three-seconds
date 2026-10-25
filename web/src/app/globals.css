@@ -9,6 +9,20 @@
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Mood-board palette cards (landing art direction only; UI keeps the semantic tokens). */
+  --pal-lavender-steel: #8e93cb;
+  --pal-coral-rush: #f8769c;
+  --pal-blossom-vapor: #ffdbed;
+  --pal-electric-amethyst: #8c70e9;
+  --pal-vapor-orchid: #f3a7ef;
+  --pal-pale-ion: #fdeb9f;
+  --pal-kinetic-ochre: #e8742b;
+  --pal-ionized-mint: #eafebf;
+  --pal-pomegranate: #ae2831;
+  --pal-petal: #fe9bb8;
+  --pal-flax: #f3e5be;
+  --pal-periwinkle: #b5bedd;
+  --pal-apricot: #ffedd5;
 }
 :root,
 [data-theme="light"] {
@@ -222,6 +236,190 @@
       animation: none;
     }
   }
+}
+
+/* The checks sit on a palette-card mesh with a fine dither grain; Ink keeps two of its lights. */
+.mesh-checks {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 55% 45% at 12% 18%, color-mix(in oklab, var(--pal-vapor-orchid) 55%, transparent), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 88% 12%, color-mix(in oklab, var(--pal-pale-ion) 70%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 88%, color-mix(in oklab, var(--pal-lavender-steel) 45%, transparent), transparent 72%),
+    radial-gradient(ellipse 55% 50% at 10% 92%, color-mix(in oklab, var(--pal-coral-rush) 30%, transparent), transparent 70%);
+}
+.mesh-checks::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: radial-gradient(rgb(18 18 18 / 0.18) 0.6px, transparent 0.8px);
+  background-size: 4px 4px;
+}
+:root[data-theme="dark"] .mesh-checks {
+  background-image:
+    radial-gradient(ellipse 55% 45% at 12% 18%, color-mix(in oklab, var(--pal-electric-amethyst) 30%, transparent), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 88%, color-mix(in oklab, var(--pal-coral-rush) 18%, transparent), transparent 72%);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mesh-checks {
+    background-image:
+      radial-gradient(ellipse 55% 45% at 12% 18%, color-mix(in oklab, var(--pal-electric-amethyst) 30%, transparent), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 80% 88%, color-mix(in oklab, var(--pal-coral-rush) 18%, transparent), transparent 72%);
+  }
+}
+
+/* The footer rises out of the page into the hero's dusk sky; its range picks up at #6f74b6. */
+.footer-sky {
+  background-image: linear-gradient(180deg, var(--background) 0, #1b1d4a 150px, #3a3d7c 62%, #6f74b6 100%);
+}
+@supports (background-image: linear-gradient(in oklab, red, blue)) {
+  .footer-sky {
+    background-image: linear-gradient(in oklab 180deg, var(--background) 0, #1b1d4a 150px, #3a3d7c 62%, #6f74b6 100%);
+  }
+}
+
+/* Questions over the hero's summits. The hero places each popup on its summit every frame and sets --shift
+   when the bubble has to slide to stay on screen; the tail stays over the summit. */
+.peak-popup {
+  --shift: 0px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.peak-pin {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--paper-50);
+  box-shadow:
+    0 0 0 2px rgb(27 29 74 / 0.35),
+    0 0 12px 2px rgb(253 243 236 / 0.55);
+  opacity: 0;
+  scale: 0.5;
+  transition:
+    opacity 160ms ease,
+    scale 200ms var(--ease-out);
+}
+.peak-bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  translate: calc(-50% + var(--shift)) calc(-100% - 14px);
+  transform-origin: calc(50% - var(--shift)) 100%;
+  border-radius: 12px;
+  padding: 8px 13px 9px;
+  white-space: nowrap;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 600;
+  color: #1b1d4a;
+  background: var(--paper-50);
+  box-shadow:
+    0 0 0 1px rgb(20 22 58 / 0.06),
+    0 12px 32px -14px rgb(20 22 58 / 0.6);
+  opacity: 0;
+  transform: translateY(6px) scale(0.9);
+  filter: blur(4px);
+  transition:
+    opacity 180ms ease,
+    transform 220ms var(--ease-out),
+    filter 180ms ease;
+}
+.peak-tail {
+  position: absolute;
+  top: 100%;
+  left: calc(50% - var(--shift));
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  rotate: 45deg;
+  border-bottom-right-radius: 3px;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  background: var(--paper-50);
+}
+.peak-popup[data-show="true"] .peak-pin {
+  opacity: 1;
+  scale: 1;
+}
+.peak-popup[data-show="true"] .peak-bubble {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+  transition:
+    opacity 260ms var(--ease-out),
+    transform 520ms var(--ease-out-expo),
+    filter 260ms ease;
+}
+/* The brand, found: signal orange, locked on with the replay booth's tracking bracket. */
+.peak-popup[data-found] .peak-pin {
+  background: var(--signal-500);
+  box-shadow:
+    0 0 0 2px rgb(18 18 18 / 0.35),
+    0 0 14px 3px rgb(234 78 18 / 0.55);
+}
+.peak-popup[data-found] .peak-bubble {
+  color: var(--ink-950);
+  background-image: linear-gradient(var(--signal-400) 58%, var(--signal-500) 92%);
+  box-shadow:
+    inset 0 -3px 8px rgb(122 34 0 / 0.32),
+    inset 0 1px 3px rgb(255 236 222 / 0.65),
+    0 12px 32px -12px rgb(122 34 0 / 0.6);
+}
+.peak-popup[data-found] .peak-tail {
+  background: var(--signal-500);
+}
+.peak-brackets {
+  position: absolute;
+  inset: -7px;
+  opacity: 0;
+  scale: 1.18;
+  transition:
+    opacity 160ms ease,
+    scale 160ms var(--ease-out);
+}
+.peak-popup[data-show="true"] .peak-brackets {
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity 220ms var(--ease-out) 160ms,
+    scale 320ms var(--ease-out) 160ms;
+}
+.peak-brackets i {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border: 0 solid var(--paper-50);
+}
+.peak-brackets i:nth-child(1) {
+  top: 0;
+  left: 0;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 3px;
+}
+.peak-brackets i:nth-child(2) {
+  top: 0;
+  right: 0;
+  border-width: 2px 2px 0 0;
+  border-top-right-radius: 3px;
+}
+.peak-brackets i:nth-child(3) {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 2px 2px;
+  border-bottom-left-radius: 3px;
+}
+.peak-brackets i:nth-child(4) {
+  right: 0;
+  bottom: 0;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 3px;
 }
 
 /* A tracking bracket locking on, the verdict stamp landing, the hero copy arriving. */

@@ -18,6 +18,10 @@ const QUESTIONS = [
     a: "Straight from your browser to Vercel Blob storage, under an unguessable link. The file never passes through our servers on the way.",
   },
   {
+    q: "Is there a WhatsApp version?",
+    a: "Coming soon: forward a Reel to Three Seconds on WhatsApp and get the verdict back in the chat, with the fix. Where text can't be coloured, every verdict carries its sign: ✓ ✕ ◉.",
+  },
+  {
     q: "Are the cited clauses final?",
     a: "Not yet. During the beta every check cites ASCI-PENDING until its clause text and thresholds are verified against the published guideline. We'd rather say so than guess.",
   },
