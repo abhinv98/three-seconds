@@ -238,44 +238,220 @@
   }
 }
 
-/* The checks sit on a palette-card mesh with a fine dither grain; Ink keeps two of its lights. */
-.mesh-checks {
-  background-color: var(--background);
-  background-image:
-    radial-gradient(ellipse 55% 45% at 12% 18%, color-mix(in oklab, var(--pal-vapor-orchid) 55%, transparent), transparent 70%),
-    radial-gradient(ellipse 50% 45% at 88% 12%, color-mix(in oklab, var(--pal-pale-ion) 70%, transparent), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 80% 88%, color-mix(in oklab, var(--pal-lavender-steel) 45%, transparent), transparent 72%),
-    radial-gradient(ellipse 55% 50% at 10% 92%, color-mix(in oklab, var(--pal-coral-rush) 30%, transparent), transparent 70%);
+/* One continuous field under every section between the hero and the footer, read as one tall palette card:
+   dusk (hero) -> Blossom -> Pale Ion -> Periwinkle -> Ionized Mint -> Apricot -> dusk again (footer).
+   Each zone paints its ground (::before, exactly its own box, from the stop the zone above ended on) and its
+   blooms (::after, bleeding into both neighbours so no seam can show). Sections must not create stacking
+   contexts, so every ground and bloom sits in the field's one stack under all content. */
+:root {
+  --field-0: var(--background);
+  --field-1: color-mix(in oklab, var(--pal-blossom-vapor) 72%, var(--background));
+  --field-2: color-mix(in oklab, var(--pal-pale-ion) 40%, var(--background));
+  --field-3: color-mix(in oklab, var(--pal-periwinkle) 52%, var(--background));
+  --field-4: color-mix(in oklab, var(--pal-ionized-mint) 58%, var(--background));
+  --field-5: color-mix(in oklab, var(--pal-apricot) 92%, var(--background));
+  --bloom-opacity: 1;
+  --grain-opacity: 0.32;
+  /* Pale Ion and Ionized Mint go olive on Ink, so dark swaps them for hues that glow. */
+  --tone-ion: var(--pal-pale-ion);
+  --tone-mint: var(--pal-ionized-mint);
+  --footer-rise: var(--pal-lavender-steel);
 }
-.mesh-checks::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.35;
-  background-image: radial-gradient(rgb(18 18 18 / 0.18) 0.6px, transparent 0.8px);
-  background-size: 4px 4px;
-}
-:root[data-theme="dark"] .mesh-checks {
-  background-image:
-    radial-gradient(ellipse 55% 45% at 12% 18%, color-mix(in oklab, var(--pal-electric-amethyst) 30%, transparent), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 80% 88%, color-mix(in oklab, var(--pal-coral-rush) 18%, transparent), transparent 72%);
+[data-theme="dark"] {
+  --field-1: color-mix(in oklab, var(--pal-coral-rush) 7%, var(--background));
+  --field-2: color-mix(in oklab, var(--pal-electric-amethyst) 8%, var(--background));
+  --field-3: color-mix(in oklab, var(--pal-lavender-steel) 11%, var(--background));
+  --field-4: color-mix(in oklab, var(--pal-electric-amethyst) 6%, var(--background));
+  --field-5: color-mix(in oklab, var(--pal-kinetic-ochre) 8%, var(--background));
+  --bloom-opacity: 0.42;
+  --grain-opacity: 0.22;
+  --tone-ion: var(--pal-vapor-orchid);
+  --tone-mint: var(--pal-electric-amethyst);
+  --footer-rise: #24264f;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .mesh-checks {
-    background-image:
-      radial-gradient(ellipse 55% 45% at 12% 18%, color-mix(in oklab, var(--pal-electric-amethyst) 30%, transparent), transparent 70%),
-      radial-gradient(ellipse 60% 50% at 80% 88%, color-mix(in oklab, var(--pal-coral-rush) 18%, transparent), transparent 72%);
+  :root:not([data-theme="light"]) {
+    --field-1: color-mix(in oklab, var(--pal-coral-rush) 7%, var(--background));
+    --field-2: color-mix(in oklab, var(--pal-electric-amethyst) 8%, var(--background));
+    --field-3: color-mix(in oklab, var(--pal-lavender-steel) 11%, var(--background));
+    --field-4: color-mix(in oklab, var(--pal-electric-amethyst) 6%, var(--background));
+    --field-5: color-mix(in oklab, var(--pal-kinetic-ochre) 8%, var(--background));
+    --bloom-opacity: 0.42;
+    --grain-opacity: 0.22;
+    --tone-ion: var(--pal-vapor-orchid);
+    --tone-mint: var(--pal-electric-amethyst);
+    --footer-rise: #24264f;
   }
 }
 
-/* The footer rises out of the page into the hero's dusk sky; its range picks up at #6f74b6. */
+.field {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+  /* Shows only above the footer's ramp, which starts transparent so the last blooms run into it. */
+  background-color: var(--field-5);
+}
+/* Film grain over the whole field (the neonarchism plates): overlay leaves the pale ground almost clean and
+   speckles the saturated blooms. */
+.field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.field-zone {
+  position: relative;
+  /* Blooms keep one shape whatever the section's height: sized by the viewport, never by the box. Each sits on a
+     seam (straddling two sections) or at the box's middle, and the bleed is larger than any bloom's reach
+     (0.72 x its height radius), so none is ever clipped into a visible edge. */
+  --bleed: 360px;
+  --seam-top: var(--bleed);
+  --seam-bottom: calc(100% - var(--bleed));
+  --bloom-lg: clamp(260px, 36vw, 560px) clamp(190px, 24vw, 370px);
+  --bloom-sm: clamp(220px, 28vw, 440px) clamp(170px, 20vw, 310px);
+}
+.field-zone::before,
+.field-zone::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+.field-zone::before {
+  inset: 0;
+  z-index: -3;
+  background-image: var(--ground);
+}
+.field-zone::after {
+  inset: calc(-1 * var(--bleed)) 0;
+  z-index: -2;
+  opacity: var(--bloom-opacity);
+  background-image: var(--blooms);
+}
+@supports (background-image: linear-gradient(in oklab, red, blue)) {
+  .field-zone::before {
+    background-image: var(--ground-oklab, var(--ground));
+  }
+}
+
+/* The call: out of the hero's paper into Blossom. No bloom on its top seam: the hero would cut it. */
+.field-call {
+  --ground: linear-gradient(180deg, var(--field-0), var(--field-1));
+  --ground-oklab: linear-gradient(in oklab 180deg, var(--field-0), var(--field-1));
+  --blooms:
+    radial-gradient(ellipse var(--bloom-lg) at 86% 50%, color-mix(in oklab, var(--pal-coral-rush) 42%, transparent), transparent 72%),
+    radial-gradient(ellipse var(--bloom-lg) at 16% var(--seam-bottom), color-mix(in oklab, var(--pal-vapor-orchid) 46%, transparent), transparent 72%);
+}
+/* The checks: Blossom through Pale Ion into Periwinkle. */
+.field-checks {
+  --ground: linear-gradient(180deg, var(--field-1), var(--field-2) 48%, var(--field-3));
+  --ground-oklab: linear-gradient(in oklab 180deg, var(--field-1), var(--field-2) 48%, var(--field-3));
+  --blooms:
+    radial-gradient(ellipse var(--bloom-lg) at 90% var(--seam-top), color-mix(in oklab, var(--tone-ion) 80%, transparent), transparent 72%),
+    radial-gradient(ellipse var(--bloom-sm) at 4% 50%, color-mix(in oklab, var(--pal-vapor-orchid) 44%, transparent), transparent 72%),
+    radial-gradient(ellipse var(--bloom-lg) at 84% var(--seam-bottom), color-mix(in oklab, var(--pal-lavender-steel) 46%, transparent), transparent 72%);
+}
+/* The languages: Periwinkle into Ionized Mint. */
+.field-lang {
+  --ground: linear-gradient(180deg, var(--field-3), var(--field-4));
+  --ground-oklab: linear-gradient(in oklab 180deg, var(--field-3), var(--field-4));
+  --blooms:
+    radial-gradient(ellipse var(--bloom-sm) at 96% 50%, color-mix(in oklab, var(--pal-electric-amethyst) 26%, transparent), transparent 72%),
+    radial-gradient(ellipse var(--bloom-lg) at 4% var(--seam-bottom), color-mix(in oklab, var(--tone-mint) 80%, transparent), transparent 72%);
+}
+/* The questions: Mint into Apricot, warming toward the footer's dusk. */
+.field-faq {
+  --ground: linear-gradient(180deg, var(--field-4), var(--field-5));
+  --ground-oklab: linear-gradient(in oklab 180deg, var(--field-4), var(--field-5));
+  --blooms:
+    radial-gradient(ellipse var(--bloom-sm) at 94% 50%, color-mix(in oklab, var(--tone-ion) 75%, transparent), transparent 72%),
+    radial-gradient(ellipse var(--bloom-lg) at 22% var(--seam-bottom), color-mix(in oklab, var(--pal-petal) 44%, transparent), transparent 72%),
+    radial-gradient(ellipse var(--bloom-sm) at 86% var(--seam-bottom), color-mix(in oklab, var(--pal-kinetic-ochre) 30%, transparent), transparent 72%);
+}
+
+/* The blooms breathe (slow drift) and lag the scroll a little (parallax), both off for reduced motion and when
+   the visitor pauses the page's motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .field-zone::after {
+    animation: field-drift 34s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate;
+  }
+  @supports (animation-timeline: view()) {
+    .field-zone::after {
+      animation:
+        field-drift 34s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate,
+        field-parallax linear both;
+      animation-timeline: auto, view();
+    }
+  }
+  .field[data-motion="paused"] .field-zone::after {
+    animation-play-state: paused;
+  }
+}
+@keyframes field-drift {
+  from {
+    transform: translate3d(-1.5%, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(1.5%, -2%, 0) scale(1.05);
+  }
+}
+@keyframes field-parallax {
+  from {
+    translate: 0 48px;
+  }
+  to {
+    translate: 0 -48px;
+  }
+}
+
+/* One rhythm for every section: 120px each side on desktop, 240px between two sections' content. */
+.section-y {
+  padding-block: clamp(4.5rem, 9vw, 7.5rem);
+}
+.h-section {
+  font-size: clamp(2.4rem, 5.2vw, 4.25rem);
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* Section parts arrive in order as they scroll in: the heading, then the text, then the picture. Hidden only
+   once the script has run (data-ready), so the page reads in full without it. */
+@media (prefers-reduced-motion: no-preference) {
+  .field[data-ready] [data-rv] {
+    transition:
+      opacity 700ms var(--ease-out),
+      translate 900ms var(--ease-out-expo),
+      filter 700ms var(--ease-out);
+  }
+  .field[data-ready] [data-rv]:not([data-in]) {
+    opacity: 0;
+    translate: 0 28px;
+    filter: blur(6px);
+  }
+  .field[data-ready] [data-rv="1"] {
+    transition-delay: 80ms;
+  }
+  .field[data-ready] [data-rv="2"] {
+    transition-delay: 160ms;
+  }
+  .field[data-ready] [data-rv="3"] {
+    transition-delay: 240ms;
+  }
+}
+
+/* The footer rises out of the field's Apricot into night blue, where the range's sky picks up. */
 .footer-sky {
-  background-image: linear-gradient(180deg, var(--background) 0, #1b1d4a 150px, #3a3d7c 62%, #6f74b6 100%);
+  background-image: linear-gradient(180deg, transparent 0, var(--footer-rise) 170px, #1b1d4a 310px);
 }
 @supports (background-image: linear-gradient(in oklab, red, blue)) {
   .footer-sky {
-    background-image: linear-gradient(in oklab 180deg, var(--background) 0, #1b1d4a 150px, #3a3d7c 62%, #6f74b6 100%);
+    background-image: linear-gradient(in oklab 180deg, transparent 0, var(--footer-rise) 170px, #1b1d4a 310px);
   }
 }
 

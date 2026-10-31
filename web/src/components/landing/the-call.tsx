@@ -37,16 +37,14 @@ const TABS = [
 /** What the check finds: the measured sentence on a palette-card gradient, the verdicts as stacked tabs, the live replay. */
 export function TheCall() {
   return (
-    <section id="call" aria-labelledby="call-heading" className="scroll-mt-24 mx-auto max-w-[1200px] px-4 pt-16 pb-24 sm:px-6 sm:pt-20 sm:pb-32">
-      <h2
-        id="call-heading"
-        className="max-w-[20ch] text-[clamp(2.4rem,5.4vw,4.25rem)] leading-[1] font-bold tracking-[-0.03em] text-balance"
-      >
+    <section id="call" aria-labelledby="call-heading" className="field-zone field-call scroll-mt-24">
+      <div className="section-y mx-auto max-w-[1200px] px-4 sm:px-6">
+      <h2 id="call-heading" data-rv="0" className="h-section max-w-[20ch]">
         Found at 00:03.0.
         <span className="block text-muted-foreground">The label had left at 00:02.2.</span>
       </h2>
-      <div className="mt-14 grid items-start gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:gap-12">
-        <div>
+      <div className="mt-12 grid items-start gap-14 sm:mt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:gap-12">
+        <div data-rv="1">
           <p className="font-mono text-[12px] leading-4 text-muted-foreground">The sample Reel · glow-serum-reel.mp4 · 00:28.0</p>
           <div className="mt-5 max-w-[520px]">
             <div className="relative z-10 rounded-[24px] bg-[linear-gradient(160deg,var(--pal-pomegranate)_0%,var(--pal-petal)_55%,var(--pal-flax)_100%)] p-6 pb-12 text-[var(--ink-950)] sm:p-8 sm:pb-14">
@@ -82,7 +80,10 @@ export function TheCall() {
             <Icon name="arrow-right" size={18} />
           </Link>
         </div>
-        <ReplayReel />
+        <div data-rv="2">
+          <ReplayReel />
+        </div>
+      </div>
       </div>
     </section>
   );

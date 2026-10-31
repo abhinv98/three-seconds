@@ -54,6 +54,7 @@ const MASSIF_WIDTH = 26;
 const pathX = (y: number) => PATH_X + Math.sin(y * K) * WEAVE;
 const pathSlope = (y: number) => Math.cos(y * K) * WEAVE * K;
 const pathCurve = (y: number) => -Math.sin(y * K) * WEAVE * K * K;
+const crestX = (y: number) => MASSIF_X + Math.sin(y * K * 2) * 5;
 
 export interface Peak {
   x: number;
@@ -73,13 +74,18 @@ export const PEAKS: Peak[] = [
 ];
 
 const FLIGHT_SPEED = 8; // world units per second
+const OVERFLY_SPEED = 11;
+/** Where the overfly's horizon sits, as a fraction of the canvas height (the footer lays its copy above it). */
+export const OVERFLY_HORIZON = 0.52;
 const FLIGHT_START = PEAKS[0].y - 100; // the first question is the first one in view
 
 interface Terrain {
   map: Float32Array;
   lit: Float32Array;
-  /** Cruise altitude along the path, by world y, smoothed so the drone glides. */
+  /** Cruise altitude along the flight's path, by world y. */
   cruise: Float32Array;
+  /** Cruise altitude along the overfly's crest line, by world y. */
+  crest: Float32Array;
 }
 const terrains = new Map<number, Terrain>();
 
@@ -147,23 +153,29 @@ function makeTerrain(seed: number): Terrain {
     }
   }
 
-  // Cruise altitude: clear the ground under the path, never lower than most of the range.
-  const cruise = new Float32Array(SIZE);
-  for (let y = 0; y < SIZE; y++) {
-    const x = Math.floor(pathX(y));
-    let ground = 0;
-    for (let d = -3; d <= 3; d++) ground = Math.max(ground, map[y * SIZE + ((x + d) & MASK)]);
-    cruise[y] = Math.max(ground * RELIEF + 18, RELIEF * 0.72);
-  }
-  for (let pass = 0; pass < 3; pass++) {
-    const copy = cruise.slice();
+  // Cruise altitude: clear the ground under a path, smoothed so the drone glides. The flight keeps to the flank,
+  // never lower than most of the range; the overfly skims the crest line.
+  const cruiseAlong = (path: (y: number) => number, clearance: number, floor: number) => {
+    const out = new Float32Array(SIZE);
     for (let y = 0; y < SIZE; y++) {
-      let sum = 0;
-      for (let d = -12; d <= 12; d++) sum += copy[(y + d) & MASK];
-      cruise[y] = sum / 25;
+      const x = Math.floor(path(y));
+      let ground = 0;
+      for (let d = -3; d <= 3; d++) ground = Math.max(ground, map[y * SIZE + ((x + d) & MASK)]);
+      out[y] = Math.max(ground * RELIEF + clearance, floor);
     }
-  }
-  return { map, lit, cruise };
+    for (let pass = 0; pass < 3; pass++) {
+      const copy = out.slice();
+      for (let y = 0; y < SIZE; y++) {
+        let sum = 0;
+        for (let d = -12; d <= 12; d++) sum += copy[(y + d) & MASK];
+        out[y] = sum / 25;
+      }
+    }
+    return out;
+  };
+  const cruise = cruiseAlong(pathX, 18, RELIEF * 0.72);
+  const crest = cruiseAlong(crestX, 14, RELIEF * 0.8);
+  return { map, lit, cruise, crest };
 }
 
 function terrainFor(seed: number) {
@@ -231,14 +243,15 @@ export interface TerrainSnapshot {
 
 interface TerrainOptions {
   palette: TerrainPalette;
-  /** "flight": the drone flies along the range. "panorama": a high, slow sideways drift for the footer. */
-  mode: "flight" | "panorama";
+  /** "flight": the drone flies along the range's flank. "overfly": it flies straight ahead, high over the summits,
+   * toward the sun (the footer). */
+  mode: "flight" | "overfly";
   seed?: number;
 }
 
 /** Builds a painter for AsciiGL, plus where each named summit sits on screen and where the sun is. */
 export function createTerrainPainter({ palette, mode, seed = 7 }: TerrainOptions) {
-  const { map, lit, cruise } = terrainFor(seed);
+  const { map, lit, cruise, crest } = terrainFor(seed);
   const [lowR, lowG, lowB] = parseColor(palette.low) ?? [0, 0, 0];
   const [midR, midG, midB] = parseColor(palette.mid) ?? [0, 0, 0];
   const [highR, highG, highB] = parseColor(palette.high) ?? [0, 0, 0];
@@ -249,20 +262,23 @@ export function createTerrainPainter({ palette, mode, seed = 7 }: TerrainOptions
   const maxZ = flight ? 260 : 320;
   // Where the ground dissolves into the page, as fractions of the height.
   const fadeFrom = flight ? 0.76 : 0.8;
-  const fadeTo = flight ? 0.985 : 0.98;
+  const fadeTo = flight ? 0.985 : 0.975;
 
   const height = (x: number, y: number) => map[(Math.floor(y) & MASK) * SIZE + (Math.floor(x) & MASK)];
+  const altitudes = flight ? cruise : crest;
   const cruiseAt = (y: number) => {
     const i = Math.floor(y);
     const f = y - i;
-    return cruise[i & MASK] * (1 - f) + cruise[(i + 1) & MASK] * f;
+    return altitudes[i & MASK] * (1 - f) + altitudes[(i + 1) & MASK] * f;
   };
   const state: TerrainSnapshot = {
     cols: 1,
     rows: 1,
     popups: PEAKS.map(() => ({ x: 0, y: 0, scale: 1, visible: false })),
   };
-  const glow: SunGlow = { x: 0.66, y: 0.5, r: 0.22, disc: 0.065, strength: 0.6 };
+  const glow: SunGlow = flight
+    ? { x: 0.66, y: 0.5, r: 0.22, disc: 0.065, strength: 0.6 }
+    : { x: 0.5, y: 0.5, r: 0.12, disc: 0.035, strength: 0.55 };
   let image: ImageData | null = null;
   let pixels: Uint32Array | null = null;
   let ybuffer = new Float32Array(0);
@@ -283,7 +299,7 @@ export function createTerrainPainter({ palette, mode, seed = 7 }: TerrainOptions
   /** Changes whenever a frozen frame needs drawing again. */
   const getRevision = () => revision;
   const snapshot = () => state;
-  const sun = () => (flight ? glow : null);
+  const sun = () => glow;
 
   const pack = (r: number, g: number, b: number, a: number) =>
     ((a << 24) | (Math.min(255, Math.round(b)) << 16) | (Math.min(255, Math.round(g)) << 8) | Math.min(255, Math.round(r))) >>> 0;
@@ -302,18 +318,19 @@ export function createTerrainPainter({ palette, mode, seed = 7 }: TerrainOptions
 
     // Camera. Portrait screens get a longer lens, turned a little toward the range.
     const aspect = (cols * cellAspect) / rows;
-    const fov = flight ? Math.min(1.25, Math.max(0.8, 0.55 + 0.45 * aspect)) : 1.5;
+    const fov = Math.min(1.25, Math.max(0.8, 0.55 + 0.45 * aspect));
     const bias = flight ? (1.25 - fov) * 0.5 : 0;
     const focal = (cols / 2 / Math.tan(fov / 2)) * cellAspect; // screen rows per unit of height at unit depth
-    // The panorama looks across the range from the foothills and drifts along it.
-    const camY = flight ? FLIGHT_START + t * FLIGHT_SPEED : 40 + t * 2.4;
-    const camX = flight ? pathX(camY) : 215;
-    const heading = flight ? Math.PI / 2 - Math.atan(pathSlope(camY)) + bias : Math.PI;
-    const altitude = flight ? cruiseAt(camY) + Math.sin(t * 0.37) * 2 : RELIEF * 0.95;
-    const level = flight ? 0.66 - 0.1 * clamp01((aspect - 0.6) / 0.8) : 0.42;
+    // The overfly holds the massif's crest line, skimming each summit, with a slow sway.
+    const sway = Math.sin(t * 0.21);
+    const camY = flight ? FLIGHT_START + t * FLIGHT_SPEED : t * OVERFLY_SPEED;
+    const camX = flight ? pathX(camY) : crestX(camY);
+    const heading = flight ? Math.PI / 2 - Math.atan(pathSlope(camY)) + bias : Math.PI / 2 + sway * 0.05;
+    const altitude = cruiseAt(camY) + Math.sin(t * 0.37) * 2;
+    const level = flight ? 0.66 - 0.1 * clamp01((aspect - 0.6) / 0.8) : OVERFLY_HORIZON;
     const horizon = rows * (level - (flight ? scroll * 0.16 : 0));
     // Banking into the turns: the horizon's slope, in rows per column.
-    const roll = (flight ? pathCurve(camY) * 7.2 : 0) * cellAspect;
+    const roll = (flight ? pathCurve(camY) * 7.2 : sway * 0.012) * cellAspect;
     const cosH = Math.cos(heading);
     const sinH = Math.sin(heading);
     glow.y = (horizon - rows * 0.02) / rows;

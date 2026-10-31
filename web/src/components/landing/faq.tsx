@@ -29,12 +29,13 @@ const QUESTIONS = [
 
 export function Faq() {
   return (
-    <section id="faq" aria-labelledby="faq-heading" className="scroll-mt-16 mx-auto max-w-[1200px] px-4 py-20 sm:px-6 sm:py-28">
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
-        <h2 id="faq-heading" className="text-[clamp(2.25rem,5vw,3.75rem)] leading-[1.02] font-extrabold tracking-[-0.02em] text-balance">
-          Questions, answered plainly.
+    <section id="faq" aria-labelledby="faq-heading" className="field-zone field-faq scroll-mt-16">
+      <div className="section-y mx-auto grid max-w-[1200px] gap-10 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
+        <h2 id="faq-heading" data-rv="0" className="h-section">
+          Questions,
+          <span className="block text-muted-foreground">answered plainly.</span>
         </h2>
-        <div className="divide-y divide-border border-y border-border">
+        <div data-rv="1" className="divide-y divide-border border-y border-border">
           {QUESTIONS.map((item) => (
             <details key={item.q} className="group py-1">
               <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-sm py-3 [&::-webkit-details-marker]:hidden">

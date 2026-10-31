@@ -23,20 +23,21 @@ export function Languages() {
   }, [paused, reduced]);
 
   return (
-    <section aria-labelledby="lang-heading" className="mx-auto max-w-[1200px] px-4 py-20 sm:px-6 sm:py-28">
-      <div className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center lg:gap-16">
-        <div>
-          <h2 id="lang-heading" className="text-[clamp(2.25rem,5vw,3.75rem)] leading-[1.02] font-extrabold tracking-[-0.02em] text-balance">
-            Hears it the way it&apos;s said.
+    <section aria-labelledby="lang-heading" className="field-zone field-lang">
+      <div className="section-y mx-auto grid max-w-[1200px] gap-12 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-16">
+        <div data-rv="0">
+          <h2 id="lang-heading" className="h-section">
+            Hears it
+            <span className="block text-muted-foreground">the way it&apos;s said.</span>
           </h2>
-          <p className="ts-body mt-5 max-w-[46ch] text-pretty text-muted-foreground lg:text-[17px] lg:leading-7">
+          <p className="ts-body mt-6 max-w-[46ch] text-pretty text-foreground/80 lg:text-[17px] lg:leading-7">
             Indian Reels switch languages mid-sentence. Three Seconds keeps Hindi in Devanagari and Hinglish in Latin
             script, exactly as spoken, and tags every line so a reviewer knows what was heard.
           </p>
         </div>
-        <ol className="divide-y divide-border border-y border-border" aria-label="One disclosure, three ways">
+        <ol data-rv="1" className="divide-y divide-border border-y border-border" aria-label="One disclosure, three ways">
           {LINES.map((line, i) => (
-            <li key={line.tag} className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-5 sm:py-6">
+            <li key={line.tag} className="relative isolate grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-5 sm:py-6">
               <span
                 aria-hidden="true"
                 className={cn(
