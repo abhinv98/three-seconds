@@ -23,9 +23,15 @@ Environment (`web/.env.local`, see `web/.env.example`):
 ```bash
 cd worker
 uv sync
-uv run uvicorn main:app --reload --port 8000   # GET /health, POST /analyze
+uv run --env-file .env uvicorn main:app --reload --port 8000   # GET /health, POST /analyze
 uv run pytest
 ```
+
+Environment (`worker/.env`, see `worker/.env.example`):
+
+- `PROVIDER`: `baseten` (default) or `fireworks`. Both serve Muse Spark Open through the same Chat Completions client (`worker/llm.py`); audio input works on Baseten only.
+- `BASETEN_API_KEY`: used with the model slug `meta-models/muse-spark-open-1026`.
+- `FIREWORKS_API_KEY`: used with `accounts/fireworks/models/muse-spark-open`.
 
 ## Mock mode
 
