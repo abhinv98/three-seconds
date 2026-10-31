@@ -3,9 +3,13 @@ import json
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
+import llm
+import pipeline.report as report_module
 from main import app
 from models import Report
 from pipeline.fixture import FIXTURE_PATH, SCHEMA_PATH
+
+SAMPLE_REEL = FIXTURE_PATH.parents[2] / "web" / "public" / "sample" / "glow-serum-reel.mp4"
 
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 VALIDATOR = Draft202012Validator(SCHEMA, format_checker=Draft202012Validator.FORMAT_CHECKER)
@@ -28,21 +32,47 @@ def test_health():
     assert response.json() == {"ok": True}
 
 
-def test_analyze_returns_a_valid_report_for_the_real_file():
+def fake_chat(messages, **params):
+    """Label on screen from 0.5s to 4.0s; the answer for t=5.0 is missing, so that frame is unknown."""
+    times = [float(p["text"][2:]) for p in messages[0]["content"] if p["type"] == "text" and p["text"].startswith("t=")]
+    rows = [
+        {"t": t, "label_present": 0.5 <= t < 4.0, "label_text": "Paid partnership", "position": "top-left"}
+        for t in times
+        if t != 5.0
+    ]
+    return llm.Reply(f"Here you go:\n```json\n{json.dumps(rows)}\n```", 1000, 100, 0.001)
+
+
+def test_analyze_runs_the_pipeline_on_the_uploaded_file(monkeypatch):
+    monkeypatch.setattr(report_module, "download", lambda url, dest: SAMPLE_REEL)
+    monkeypatch.setattr(llm, "chat", fake_chat)
     response = client.post(
         "/analyze",
-        json={"blob_url": "https://example.invalid/videos/reel.mp4", "filename": "reel.mp4", "duration_s": 14},
+        json={"blob_url": "https://x.public.blob.vercel-storage.com/videos/reel.mp4", "filename": "reel.mp4"},
     )
     assert response.status_code == 200
     report = response.json()
     assert errors_for(report) == []
-    assert report["video"]["filename"] == "reel.mp4"
-    assert report["video"]["duration_s"] == 14
-    assert report["job_id"] != "mock-0001"
-    label = next(t for t in report["tracks"] if t["kind"] == "disclosure_label")
-    assert label["spans"][0] == {"t_start": 0.2, "t_end": 1.1}
-    duration_check = next(c for c in report["checks"] if c["id"] == "label_duration")
-    assert duration_check["detail"].startswith("Label held 0.9s.")
+    assert report["mock"] is False
+    assert report["video"]["duration_s"] == 28
+    assert report["video"]["fps_sampled"] == 2
+    [label] = report["tracks"]
+    assert label["spans"] == [{"t_start": 0.5, "t_end": 4.0}]
+    assert (label["first_seen_s"], label["total_on_screen_s"], label["longest_continuous_s"]) == (0.5, 3.5, 3.5)
+    checks = {c["id"]: c for c in report["checks"]}
+    assert checks["label_present"]["verdict"] == "PASS"
+    assert checks["label_duration"]["verdict"] == "PASS"
+    assert {"t_start": 5.0, "t_end": 5.5, "kind": "frame", "note": "Frames could not be read"} in checks[
+        "label_duration"
+    ]["evidence"]
+    assert checks["spoken_disclosure"]["detail"] == "Audio check coming"
+    assert report["verdict"] == "REVIEW"
+
+
+def test_analyze_only_fetches_vercel_blob_urls():
+    response = client.post("/analyze", json={"blob_url": "http://169.254.169.254/latest", "filename": "v.mp4"})
+    assert response.status_code == 400
+    assert "vercel-storage.com" in response.json()["detail"]
 
 
 def test_analyze_rejects_a_missing_filename():

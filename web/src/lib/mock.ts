@@ -69,6 +69,7 @@ export function buildMockReport(input: MockReportInput): Report {
       first_seen_s: track.first_seen_s === null ? null : t(track.first_seen_s),
       last_seen_s: track.last_seen_s === null ? null : t(track.last_seen_s),
       total_on_screen_s: round1(track.total_on_screen_s * k),
+      longest_continuous_s: round1(track.longest_continuous_s * k),
     })),
     transcript: base.transcript.map((seg) => ({
       ...seg,

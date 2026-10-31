@@ -57,6 +57,7 @@ export interface Track {
   first_seen_s: number | null;
   last_seen_s: number | null;
   total_on_screen_s: number;
+  longest_continuous_s: number;
   max_frame_share: number;
 }
 

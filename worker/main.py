@@ -3,9 +3,10 @@
 Run locally:  uv run uvicorn main:app --reload --port 8000
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from models import AnalyzeRequest, Report
+from pipeline.frames import VideoError
 from pipeline.report import build_report
 
 app = FastAPI(title="Three Seconds worker", version="0.1.0")
@@ -18,4 +19,7 @@ def health() -> dict[str, bool]:
 
 @app.post("/analyze", response_model=Report, response_model_exclude_none=False)
 def analyze(request: AnalyzeRequest) -> Report:
-    return build_report(request)
+    try:
+        return build_report(request)
+    except VideoError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e

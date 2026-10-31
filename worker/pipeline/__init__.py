@@ -1,1 +1,1 @@
-"""Analysis pipeline: frames -> track -> transcribe -> rules -> report. Every stage is a stub for now."""
+"""Analysis pipeline: frames -> vision -> track -> rules -> report. transcribe.py is still a stub (audio step)."""

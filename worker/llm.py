@@ -26,15 +26,37 @@ class Provider:
     base_url: str
     key_env: str
     model: str
+    usd_per_m_input: float | None
+    """Price per million tokens, or None where the provider's API doesn't publish one."""
+    usd_per_m_output: float | None
 
 
 PROVIDERS = {
     # The Baseten key only works with this exact slug; plain "meta-models/muse-spark-open" returns 401.
-    "baseten": Provider("https://inference.baseten.co/v1", "BASETEN_API_KEY", "meta-models/muse-spark-open-1026"),
+    # Prices from GET https://inference.baseten.co/v1/models (2026-10-31).
+    "baseten": Provider(
+        "https://inference.baseten.co/v1", "BASETEN_API_KEY", "meta-models/muse-spark-open-1026", 1.25, 4.25
+    ),
     "fireworks": Provider(
-        "https://api.fireworks.ai/inference/v1", "FIREWORKS_API_KEY", "accounts/fireworks/models/muse-spark-open"
+        "https://api.fireworks.ai/inference/v1",
+        "FIREWORKS_API_KEY",
+        "accounts/fireworks/models/muse-spark-open",
+        None,
+        None,
     ),
 }
+
+
+@dataclass(frozen=True)
+class Reply:
+    text: str
+    """choices[0].message.content; the reasoning is dropped."""
+    prompt_tokens: int
+    completion_tokens: int
+    """Includes reasoning tokens."""
+    cost_usd: float | None
+    """At list price, ignoring the cached-input discount (an upper bound); None if the price is unknown."""
+
 
 _RETRY_STATUS = {429, 500, 502, 503, 529}
 
@@ -65,8 +87,8 @@ def audio_part(wav: bytes) -> dict:
     return {"type": "audio_url", "audio_url": {"url": url}}
 
 
-def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> str:
-    """Send a Chat Completions request and return the final answer text.
+def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> Reply:
+    """Send a Chat Completions request and return the final answer with its token usage.
 
     Args:
         messages: OpenAI-format messages; content may mix text, image_part() and audio_part().
@@ -74,7 +96,7 @@ def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> str:
         **params: Extra request fields, e.g. reasoning_effort="low" or max_tokens=2048.
 
     Returns:
-        choices[0].message.content. The reasoning is dropped.
+        The answer text (choices[0].message.content, without the reasoning), tokens and cost.
 
     Raises:
         LLMError: HTTP error, refusal, or an answer cut off by max_tokens.
@@ -102,4 +124,9 @@ def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> str:
         raise LLMError(f"{p.model} refused: {message['refusal']}")
     if choice.get("finish_reason") == "length":
         raise LLMError(f"{p.model} hit max_tokens before finishing its answer (reasoning counts toward it)")
-    return message.get("content") or ""
+    usage = data.get("usage") or {}
+    prompt_tokens, completion_tokens = usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0)
+    cost = None
+    if p.usd_per_m_input is not None and p.usd_per_m_output is not None:
+        cost = (prompt_tokens * p.usd_per_m_input + completion_tokens * p.usd_per_m_output) / 1e6
+    return Reply(message.get("content") or "", prompt_tokens, completion_tokens, cost)

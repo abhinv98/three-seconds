@@ -10,7 +10,9 @@ def fake_urlopen(sent: list, finish_reason: str = "stop"):
     def urlopen(request, timeout):
         sent.append(request)
         message = {"role": "assistant", "reasoning_content": "thinking...", "content": "answer"}
-        return io.BytesIO(json.dumps({"choices": [{"message": message, "finish_reason": finish_reason}]}).encode())
+        usage = {"prompt_tokens": 1_000_000, "completion_tokens": 2_000_000}
+        choices = [{"message": message, "finish_reason": finish_reason}]
+        return io.BytesIO(json.dumps({"choices": choices, "usage": usage}).encode())
 
     return urlopen
 
@@ -36,7 +38,9 @@ def test_chat_uses_the_chosen_provider_and_returns_only_the_answer(monkeypatch, 
     sent = []
     monkeypatch.setattr(llm.urllib.request, "urlopen", fake_urlopen(sent))
 
-    assert llm.chat([{"role": "user", "content": [llm.audio_part(b"RIFF")]}], reasoning_effort="low") == "answer"
+    reply = llm.chat([{"role": "user", "content": [llm.audio_part(b"RIFF")]}], reasoning_effort="low")
+    assert reply.text == "answer"
+    assert reply.cost_usd == (1.25 + 2 * 4.25 if name is None else None)
     body = json.loads(sent[0].data)
     assert sent[0].full_url == url
     assert body["model"] == model

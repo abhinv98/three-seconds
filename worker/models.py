@@ -66,6 +66,7 @@ class Track(Strict):
     first_seen_s: Seconds | None = Field(ge=0)
     last_seen_s: Seconds | None = Field(ge=0)
     total_on_screen_s: Seconds = Field(ge=0)
+    longest_continuous_s: Seconds = Field(ge=0)
     max_frame_share: float = Field(ge=0, le=1)
 
 

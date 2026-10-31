@@ -113,6 +113,7 @@
         "first_seen_s",
         "last_seen_s",
         "total_on_screen_s",
+        "longest_continuous_s",
         "max_frame_share"
       ],
       "properties": {
@@ -122,6 +123,7 @@
         "first_seen_s": { "oneOf": [{ "$ref": "#/$defs/seconds" }, { "type": "null" }] },
         "last_seen_s": { "oneOf": [{ "$ref": "#/$defs/seconds" }, { "type": "null" }] },
         "total_on_screen_s": { "$ref": "#/$defs/seconds" },
+        "longest_continuous_s": { "$ref": "#/$defs/seconds" },
         "max_frame_share": { "type": "number", "minimum": 0, "maximum": 1 }
       }
     },

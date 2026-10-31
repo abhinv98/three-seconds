@@ -1,7 +1,7 @@
 [project]
 name = "three-seconds-worker"
 version = "0.1.0"
-description = "Analysis worker for Three Seconds. Mock pipeline for now."
+description = "Analysis worker for Three Seconds. Visual pipeline (frames, Muse Spark Open, label track, checks); audio not yet."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",

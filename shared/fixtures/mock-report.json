@@ -89,6 +89,7 @@
       "first_seen_s": 0.4,
       "last_seen_s": 2.2,
       "total_on_screen_s": 1.8,
+      "longest_continuous_s": 1.8,
       "max_frame_share": 0.04
     },
     {
@@ -102,6 +103,7 @@
       "first_seen_s": 3.0,
       "last_seen_s": 27.0,
       "total_on_screen_s": 13.4,
+      "longest_continuous_s": 4.5,
       "max_frame_share": 0.18
     }
   ],
