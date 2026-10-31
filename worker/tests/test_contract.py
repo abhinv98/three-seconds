@@ -36,7 +36,13 @@ def fake_chat(messages, **params):
     """Label on screen from 0.5s to 4.0s; the answer for t=5.0 is missing, so that frame is unknown."""
     times = [float(p["text"][2:]) for p in messages[0]["content"] if p["type"] == "text" and p["text"].startswith("t=")]
     rows = [
-        {"t": t, "label_present": 0.5 <= t < 4.0, "label_text": "Paid partnership", "position": "top-left"}
+        {
+            "t": t,
+            "label_present": 0.5 <= t < 4.0,
+            "kind": "label",
+            "label_text": "Paid partnership",
+            "position": "top-left",
+        }
         for t in times
         if t != 5.0
     ]
@@ -61,12 +67,17 @@ def test_analyze_runs_the_pipeline_on_the_uploaded_file(monkeypatch):
     assert (label["first_seen_s"], label["total_on_screen_s"], label["longest_continuous_s"]) == (0.5, 3.5, 3.5)
     checks = {c["id"]: c for c in report["checks"]}
     assert checks["label_present"]["verdict"] == "PASS"
-    assert checks["label_duration"]["verdict"] == "PASS"
-    assert {"t_start": 5.0, "t_end": 5.5, "kind": "frame", "note": "Frames could not be read"} in checks[
-        "label_duration"
-    ]["evidence"]
-    assert checks["spoken_disclosure"]["detail"] == "Audio check coming"
-    assert report["verdict"] == "REVIEW"
+    assert checks["label_present"]["clause"]["code"] == "ASCI-IG 1.3a"
+    # 28s video: 1.2e.II needs 9.3s and 3.5s is held; the unread frame at 5.0s is not adjacent, so it cannot help.
+    assert checks["label_duration"]["verdict"] == "FAIL"
+    assert checks["label_duration"]["clause"]["code"] == "ASCI-IG 1.2e.II"
+    assert checks["label_duration"]["evidence"] == [
+        {"t_start": 0.5, "t_end": 4.0, "kind": "label", "note": '"Paid partnership" label, top-left'},
+        {"t_start": 5.0, "t_end": 5.5, "kind": "frame", "note": "Frames could not be read"},
+    ]
+    assert checks["spoken_disclosure"]["verdict"] == "INFO"
+    assert checks["spoken_disclosure"]["detail"].startswith("Audio check coming.")
+    assert report["verdict"] == "FAIL"
 
 
 def test_analyze_only_fetches_vercel_blob_urls():

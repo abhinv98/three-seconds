@@ -11,7 +11,7 @@ interface FixCardProps {
 /** Every FAIL and REVIEW comes with its fix. Steps are grouped worst first. */
 export function FixCard({ checks, onSeek }: FixCardProps) {
   const items = bySeverity(checks)
-    .filter((c) => c.verdict !== "PASS" && c.fix?.steps.length)
+    .filter((c) => (c.verdict === "FAIL" || c.verdict === "REVIEW") && c.fix?.steps.length)
     .flatMap((c) => (c.fix?.steps ?? []).map((step) => ({ step, check: c })));
   if (items.length === 0) return null;
 

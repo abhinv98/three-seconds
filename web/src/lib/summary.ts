@@ -10,8 +10,9 @@ function firstSentence(text: string): { head: string; rest: string } {
 /** The measured sentence at the top of a report: worst check first, its detail split into head and note. */
 export function verdictHeadline(report: Report): { headline: string; note: string } {
   const worst = bySeverity(report.checks)[0];
-  if (report.verdict === "PASS" || !worst || worst.verdict === "PASS") {
-    return { headline: "Good to post.", note: `All ${report.checks.length} checks passed.` };
+  if (report.verdict === "PASS" || !worst || worst.verdict === "PASS" || worst.verdict === "INFO") {
+    const decided = report.checks.filter((c) => c.verdict !== "INFO").length;
+    return { headline: "Good to post.", note: `All ${decided} checks passed.` };
   }
   const { head, rest } = firstSentence(worst.detail);
   return { headline: head, note: rest };

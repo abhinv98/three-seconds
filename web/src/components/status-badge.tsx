@@ -1,12 +1,13 @@
 import { Icon, type IconName } from "@/components/icon";
 import { cn } from "@/lib/utils";
 
-export type Status = "pass" | "fail" | "review" | "running" | "pending";
+export type Status = "pass" | "fail" | "review" | "info" | "running" | "pending";
 
 const META: Record<Status, { word: string; icon: IconName }> = {
   pass: { word: "Pass", icon: "check" },
   fail: { word: "Fail", icon: "cross" },
   review: { word: "Review", icon: "eye" },
+  info: { word: "Info", icon: "info" },
   running: { word: "Running", icon: "spinner" },
   pending: { word: "Pending", icon: "circle" },
 };
@@ -15,6 +16,7 @@ const SOLID: Record<Status, string> = {
   pass: "bg-pass text-pass-foreground",
   fail: "bg-fail text-fail-foreground",
   review: "bg-review text-review-foreground",
+  info: "bg-muted text-foreground",
   running: "bg-primary text-primary-foreground",
   pending: "bg-muted text-muted-foreground",
 };
@@ -23,6 +25,7 @@ const SOFT: Record<Status, string> = {
   pass: "bg-pass-surface text-pass-text",
   fail: "bg-fail-surface text-fail-text",
   review: "bg-review-surface text-review-text",
+  info: "bg-muted text-foreground",
   running: "bg-muted text-foreground",
   pending: "bg-muted text-muted-foreground",
 };

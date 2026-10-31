@@ -22,10 +22,13 @@ REASONING_EFFORT = "low"
 
 PROMPT = """These are {n} frames from a creator video (an Instagram Reel or YouTube Short), each one preceded by its timestamp.
 
-For every frame, decide whether an on-screen advertising disclosure label is visible: text such as "Paid partnership", "Paid partnership with <brand>", "Sponsored", "Ad", "#ad", "Collab", "In collaboration with", or Hindi such as "विज्ञापन", "प्रायोजित", "सशुल्क साझेदारी" or "paid partnership hai". A brand name, logo, product or price on its own is not a disclosure label.
+For every frame, decide whether advertising-disclosure text is visible on screen. Count either:
+- a label: a tag, sticker or text overlay such as Instagram's "Paid partnership" line under the username, "Ad", "#ad", "Sponsored", "Collab", "Collaboration", "Partnership", "Affiliate", "Free gift", "Includes paid promotion", or Hindi such as "विज्ञापन", "प्रायोजित", "सशुल्क साझेदारी";
+- a caption: superimposed subtitles of what is said, when their words disclose the ad, such as "Yeh video sponsored hai".
+A brand name, logo, product or price on its own is not a disclosure.
 
 Reply with a JSON array only, one object per frame, in the same order:
-{{"t": <timestamp in seconds>, "label_present": true or false, "label_text": "<the label's exact text, or empty>", "language": "en" | "hi-Deva" | "hi-Latn" | "other" | "", "position": "top-left" | "top" | "top-right" | "left" | "center" | "right" | "bottom-left" | "bottom" | "bottom-right" | "", "legible": <true if the label is easy to read at phone size, false otherwise or when there is no label>}}"""
+{{"t": <timestamp in seconds>, "label_present": true or false, "kind": "label" | "caption" (say "label" if both are visible), "label_text": "<the exact disclosure text, or empty>", "language": "en" | "hi-Deva" | "hi-Latn" | "other" | "", "position": "top-left" | "top" | "top-right" | "left" | "center" | "right" | "bottom-left" | "bottom" | "bottom-right" | "", "legible": <true if the text is easy to read at phone size, false otherwise or when there is none>}}"""
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +38,8 @@ class FrameReading:
     t: float
     label_present: bool | None
     """None: the model gave no parseable answer for this frame (unknown, not absent)."""
+    kind: str = "label"
+    """label (tag, sticker, overlay) or caption (subtitles of speech)."""
     label_text: str = ""
     language: str = ""
     position: str = ""
@@ -127,6 +132,7 @@ def _reading(t: float, obj: dict | None) -> FrameReading:
     return FrameReading(
         t=t,
         label_present=present,
+        kind="caption" if present and _text(obj.get("kind")).lower() == "caption" else "label",
         label_text=_text(obj.get("label_text")) if present else "",
         language=_text(obj.get("language"))[:16] if present else "",
         position=_text(obj.get("position"))[:16] if present else "",

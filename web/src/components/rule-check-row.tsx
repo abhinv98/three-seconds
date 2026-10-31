@@ -1,7 +1,14 @@
 import { Icon } from "@/components/icon";
 import { StatusBadge } from "@/components/status-badge";
 import { TimecodeChip, TimecodeText } from "@/components/timecode-chip";
-import { verdictStatus, type Check } from "@/lib/report";
+import { verdictStatus, type Check, type Evidence } from "@/lib/report";
+
+const EVIDENCE_WORD: Record<Evidence["kind"], string> = {
+  audio: "Audio:",
+  frame: "Frames:",
+  label: "Label:",
+  caption: "Caption:",
+};
 
 interface RuleCheckRowProps {
   check: Check;
@@ -35,7 +42,7 @@ export function RuleCheckRow({ check, time, onSeek }: RuleCheckRowProps) {
                 />
                 <span className="ts-body-sm inline-flex min-w-0 items-center gap-1.5 text-muted-foreground">
                   <Icon name={e.kind === "audio" ? "mic" : "film"} size={14} />
-                  <span className="sr-only">{e.kind === "audio" ? "Audio:" : "Frames:"}</span>
+                  <span className="sr-only">{EVIDENCE_WORD[e.kind]}</span>
                   {e.note}
                 </span>
               </li>

@@ -3,6 +3,9 @@
 
 export type Verdict = "PASS" | "FAIL" | "REVIEW";
 
+/** INFO is reported but never decides the overall verdict (spoken disclosure, for one). */
+export type CheckVerdict = Verdict | "INFO";
+
 export type CheckId =
   | "label_present"
   | "label_duration"
@@ -27,7 +30,8 @@ export interface Clause {
 export interface Evidence {
   t_start: number;
   t_end: number;
-  kind: "frame" | "audio";
+  /** label: on-screen tag or overlay; caption: superimposed subtitles; frame: other frames; audio: speech. */
+  kind: "frame" | "audio" | "label" | "caption";
   note: string;
 }
 
@@ -38,7 +42,7 @@ export interface Fix {
 export interface Check {
   id: CheckId;
   title: string;
-  verdict: Verdict;
+  verdict: CheckVerdict;
   detail: string;
   clause: Clause | null;
   evidence: Evidence[];
@@ -81,7 +85,7 @@ export interface Report {
   generated_at: string;
 }
 
-const SEVERITY: Record<Verdict, number> = { FAIL: 0, REVIEW: 1, PASS: 2 };
+const SEVERITY: Record<CheckVerdict, number> = { FAIL: 0, REVIEW: 1, PASS: 2, INFO: 3 };
 
 /** Checks ordered worst first; stable within a verdict. */
 export function bySeverity(checks: Check[]): Check[] {
@@ -91,12 +95,12 @@ export function bySeverity(checks: Check[]): Check[] {
     .map(({ check }) => check);
 }
 
-export function countByVerdict(checks: Check[]): Record<Verdict, number> {
-  const counts: Record<Verdict, number> = { FAIL: 0, REVIEW: 0, PASS: 0 };
+export function countByVerdict(checks: Check[]): Record<CheckVerdict, number> {
+  const counts: Record<CheckVerdict, number> = { FAIL: 0, REVIEW: 0, PASS: 0, INFO: 0 };
   for (const check of checks) counts[check.verdict] += 1;
   return counts;
 }
 
-export function verdictStatus(verdict: Verdict): "pass" | "fail" | "review" {
-  return verdict === "PASS" ? "pass" : verdict === "FAIL" ? "fail" : "review";
+export function verdictStatus(verdict: CheckVerdict): "pass" | "fail" | "review" | "info" {
+  return verdict === "PASS" ? "pass" : verdict === "FAIL" ? "fail" : verdict === "INFO" ? "info" : "review";
 }

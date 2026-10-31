@@ -1,19 +1,15 @@
-"""Rule checks from the measured label track.
+"""Rule checks from the measured disclosure track, per ASCI's influencer guidelines (pipeline/asci.py).
 
-Clause codes and thresholds must come from the verified ASCI guideline; until then every check
-cites ASCI-PENDING and the hold threshold is config.LABEL_MIN_SECONDS.
-
-Unknown frames never count as absent: a check that the unknown frames could flip is REVIEW.
+Unlisted ("Collab") and unknown frames never count as disclosed or as absent: a verdict they could
+change is REVIEW.
 """
 
 from __future__ import annotations
 
-import config
-from models import Check, Clause, Evidence, Fix, Span, Track, Verdict
-from pipeline.track import label_spans, longest, unknown_spans
+from models import Check, CheckVerdict, Evidence, Fix, Track, Verdict
+from pipeline import asci
+from pipeline.track import DISCLOSED, UNCERTAIN, longest, spans_where, state
 from pipeline.vision import FrameReading
-
-PENDING = Clause(code="ASCI-PENDING", text="Clause text to be verified against the ASCI guideline", source_url=None)
 
 
 def timecode(seconds: float) -> str:
@@ -25,100 +21,136 @@ def timecode(seconds: float) -> str:
 
 def evaluate_rules(readings: list[FrameReading], track: Track, fps: float, duration_s: float) -> list[Check]:
     """label_present, label_duration and spoken_disclosure, in that order."""
-    unknown = unknown_spans(readings, fps, duration_s)
-    unread = [
-        Evidence(t_start=s.t_start, t_end=s.t_end, kind="frame", note="Frames could not be read") for s in unknown
-    ]
     return [
-        _label_present(readings, track, unread),
-        _label_duration(readings, track, unread, fps, duration_s),
+        _label_present(readings, track, fps, duration_s),
+        _label_duration(readings, track, fps, duration_s),
         Check(
             id="spoken_disclosure",
             title="Spoken disclosure",
-            verdict="REVIEW",
-            detail="Audio check coming",
-            clause=PENDING,
+            verdict="INFO",
+            detail=(
+                "Audio check coming. ASCI requires a spoken disclosure only for live streams (1.2f) and audio"
+                " content (1.2g), so this check never fails a video."
+            ),
+            clause=None,
             evidence=[],
-            fix=Fix(steps=["Until the audio check is live, listen for a spoken disclosure yourself."]),
         ),
     ]
 
 
-def _label_present(readings: list[FrameReading], track: Track, unread: list[Evidence]) -> Check:
-    title = "Disclosure label on screen"
-    if track.spans:
-        evidence = [_label_evidence(readings, s, f'"{track.label}" label') for s in track.spans]
-        detail = f'"{track.label}" label on screen from {timecode(track.spans[0].t_start)}.'
-        return Check(id="label_present", title=title, verdict="PASS", detail=detail, clause=PENDING, evidence=evidence)
-    if unread:
-        n = sum(r.label_present is None for r in readings)
+def _evidence(readings: list[FrameReading], fps: float, duration_s: float, *states: str) -> list[Evidence]:
+    """One evidence item per run of frames in each state, in time order."""
+    items = []
+    for s in states:
+        for span in spans_where(readings, {s}, fps, duration_s):
+            inside = [r for r in readings if span.t_start <= r.t < span.t_end]
+            if s == "unknown":
+                items.append(
+                    Evidence(t_start=span.t_start, t_end=span.t_end, kind="frame", note="Frames could not be read")
+                )
+                continue
+            text = max((r.label_text for r in inside), key=[r.label_text for r in inside].count)
+            kind = "caption" if s == "caption" or inside[0].kind == "caption" else "label"
+            position = max((r.position for r in inside), key=[r.position for r in inside].count)
+            illegible = sum(r.legible is False for r in inside)
+            note = f'"{text}" {kind}' if text else f"Unreadable {kind}"
+            note += f", {position}" if position else ""
+            note += ", not a 1.3a label" if s == "unlisted" else ""
+            note += f", hard to read in {illegible} frames" if illegible else ""
+            items.append(Evidence(t_start=span.t_start, t_end=span.t_end, kind=kind, note=note))
+    return sorted(items, key=lambda e: e.t_start)
+
+
+def _label_present(readings: list[FrameReading], track: Track, fps: float, duration_s: float) -> Check:
+    def check(verdict: CheckVerdict, detail: str, evidence: list[Evidence], fix: str | None = None) -> Check:
         return Check(
             id="label_present",
-            title=title,
-            verdict="REVIEW",
-            detail=f"No label found, but {n} of {len(readings)} frames could not be read.",
-            clause=PENDING,
-            evidence=unread,
-            fix=Fix(steps=["Check the unread stretches by eye, or run the check again."]),
+            title="Disclosure label on screen",
+            verdict=verdict,
+            detail=detail,
+            clause=asci.LABELS,
+            evidence=evidence,
+            fix=Fix(steps=[fix]) if fix else None,
         )
-    return Check(
-        id="label_present",
-        title=title,
-        verdict="FAIL",
-        detail="No disclosure label on screen.",
-        clause=PENDING,
-        evidence=[],
-        fix=Fix(steps=['Add a "Paid partnership" label on screen from the first second.']),
+
+    states = [state(r) for r in readings]
+    if track.spans:
+        first = next(r for r in readings if state(r) in DISCLOSED)
+        detail = f'"{first.label_text}" {first.kind} on screen from {timecode(track.spans[0].t_start)}.'
+        return check("PASS", detail, _evidence(readings, fps, duration_s, "label", "caption"))
+    if "unlisted" in states:
+        texts = sorted({r.label_text for r in readings if state(r) == "unlisted" and r.label_text})
+        shown = ", ".join(f'"{t}"' for t in texts) or "Disclosure-like text"
+        return check(
+            "REVIEW",
+            f'{shown} is not one of the labels ASCI 1.3a permits, such as "Collaboration" or "Paid partnership".',
+            _evidence(readings, fps, duration_s, "unlisted", "unknown"),
+            'Use a permitted label, for example "Collaboration", "Paid partnership" or "Ad".',
+        )
+    if "unknown" in states:
+        return check(
+            "REVIEW",
+            f"No label found, but {states.count('unknown')} of {len(readings)} frames could not be read.",
+            _evidence(readings, fps, duration_s, "unknown"),
+            "Check the unread stretches by eye, or run the check again.",
+        )
+    return check(
+        "FAIL",
+        "No disclosure label on screen.",
+        [],
+        'Add a permitted label such as "Paid partnership" or "Ad", on screen from the first second.',
     )
 
 
-def _label_duration(
-    readings: list[FrameReading], track: Track, unread: list[Evidence], fps: float, duration_s: float
-) -> Check:
-    need = config.LABEL_MIN_SECONDS
-    held = track.longest_continuous_s
-    at_most = longest(label_spans(readings, fps, duration_s, count_unknown=True))
-    threshold = f"The check needs {need:g}s in one stretch (threshold not yet verified)."
-    evidence = [_label_evidence(readings, s, "Label on screen") for s in track.spans] + unread
+def _label_duration(readings: list[FrameReading], track: Track, fps: float, duration_s: float) -> Check:
+    evidence = _evidence(readings, fps, duration_s, "label", "caption", "unlisted", "unknown")
+    held, total = track.longest_continuous_s, track.total_on_screen_s
+    rule = asci.required_hold(duration_s)
+    if rule is None:
+        return Check(
+            id="label_duration",
+            title="Label held long enough",
+            verdict="REVIEW",
+            detail=f"This {duration_s:.0f}s video is over 2 minutes, outside MVP scope. Label held {held:.1f}s in one stretch.",
+            clause=None,
+            evidence=evidence,
+            fix=Fix(steps=["Check the label hold by eye."]),
+        )
+    need, clause = rule
+    at_most = longest(spans_where(readings, DISCLOSED | UNCERTAIN, fps, duration_s))
+    needs = f"this {duration_s:.1f}s video needs {need:.1f}s."
+    on_screen = f"On screen {total:.1f}s in all."
     verdict: Verdict
+    fix = None
     if held >= need:
-        verdict, fix = "PASS", None
-        detail = f"Label held {held:.1f}s in one stretch, {track.total_on_screen_s:.1f}s in all. {threshold}"
+        verdict, detail = "PASS", f"Label held {held:.1f}s in one stretch; {needs} {on_screen}"
     elif at_most < need:
         verdict = "FAIL"
-        fix = Fix(steps=[f"Keep the label on screen for at least {need:g}s without a break."])
-        detail = (
-            f"Label held {held:.1f}s at most in one stretch. {threshold}"
-            if track.spans
-            else (f"No label on screen to hold. {threshold}")
-        )
+        fix = Fix(steps=[f"Keep a permitted label on screen for at least {need:.1f}s without a break."])
+        if track.spans:
+            detail = f"Label held {held:.1f}s at most in one stretch; {needs} {on_screen}"
+        else:
+            detail = f"No permitted label on screen; {needs}"
     else:
         verdict = "REVIEW"
-        fix = Fix(steps=["Check the unread stretches by eye; they decide this check."])
+        fix = Fix(steps=["Check the unread or unlisted stretches by eye; they decide this check."])
         detail = (
-            f"Label held {held:.1f}s for sure, up to {at_most:.1f}s counting frames that could not be read. {threshold}"
+            f"Label held {held:.1f}s for sure, up to {at_most:.1f}s counting unread or unlisted frames; {needs}"
+            f" {on_screen}"
         )
     return Check(
         id="label_duration",
         title="Label held long enough",
         verdict=verdict,
         detail=detail,
-        clause=PENDING,
+        clause=clause,
         evidence=evidence,
         fix=fix,
     )
 
 
-def _label_evidence(readings: list[FrameReading], span: Span, what: str) -> Evidence:
-    inside = [r for r in readings if r.label_present and span.t_start <= r.t < span.t_end]
-    position = max((r.position for r in inside), key=[r.position for r in inside].count, default="")
-    illegible = sum(r.legible is False for r in inside)
-    note = what + (f", {position}" if position else "") + (f", hard to read in {illegible} frames" if illegible else "")
-    return Evidence(t_start=span.t_start, t_end=span.t_end, kind="frame", note=note)
-
-
 def overall_verdict(checks: list[Check]) -> Verdict:
-    """FAIL if any check fails, else REVIEW if any needs review, else PASS."""
+    """FAIL if any check fails, else REVIEW if any needs review, else PASS. INFO checks don't count."""
     verdicts = {c.verdict for c in checks}
     if "FAIL" in verdicts:
         return "FAIL"

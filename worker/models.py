@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 Verdict = Literal["PASS", "FAIL", "REVIEW"]
+CheckVerdict = Literal["PASS", "FAIL", "REVIEW", "INFO"]
 CheckId = Literal["label_present", "label_duration", "spoken_disclosure", "label_language"]
 Seconds = float
 
@@ -36,7 +37,7 @@ class Clause(Strict):
 class Evidence(Strict):
     t_start: Seconds = Field(ge=0)
     t_end: Seconds = Field(ge=0)
-    kind: Literal["frame", "audio"]
+    kind: Literal["frame", "audio", "label", "caption"]
     note: str
 
 
@@ -47,7 +48,7 @@ class Fix(Strict):
 class Check(Strict):
     id: CheckId
     title: str = Field(min_length=1)
-    verdict: Verdict
+    verdict: CheckVerdict
     detail: str
     clause: Clause | None
     evidence: list[Evidence]

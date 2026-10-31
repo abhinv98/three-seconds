@@ -1,39 +1,45 @@
-"""Merges per-frame label readings into a disclosure-label track.
+"""Merges per-frame readings into a disclosure track.
 
-A frame stands for the interval [t, t + 1/fps). Consecutive frames with the label merge into one
-span; an absent frame ends it. Unknown frames also end it unless count_unknown is set, which gives
-the most the label could have been on screen.
+Each frame is one of: label or caption (a permitted ASCI 1.3a disclosure, as a tag/overlay or as
+superimposed subtitles), unlisted (disclosure-like text that isn't a 1.3a label, such as "Collab"),
+absent, or unknown (no parseable answer). A frame stands for [t, t + 1/fps); consecutive frames in
+the chosen states merge into one span.
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Collection
 
 from models import Span, Track
+from pipeline.asci import is_permitted
 from pipeline.vision import FrameReading
 
+DISCLOSED = {"label", "caption"}
+UNCERTAIN = {"unlisted", "unknown"}
 
-def label_spans(
-    readings: list[FrameReading], fps: float, duration_s: float, *, count_unknown: bool = False
-) -> list[Span]:
-    """Time spans where the label is on screen (or might be, with count_unknown)."""
-    on = {True, None} if count_unknown else {True}
+
+def state(reading: FrameReading) -> str:
+    """label, caption, unlisted, absent or unknown."""
+    if reading.label_present is None:
+        return "unknown"
+    if not reading.label_present:
+        return "absent"
+    return reading.kind if is_permitted(reading.label_text) else "unlisted"
+
+
+def spans_where(readings: list[FrameReading], states: Collection[str], fps: float, duration_s: float) -> list[Span]:
+    """Time spans of consecutive frames whose state is in `states`."""
     spans: list[Span] = []
     start: float | None = None
     for i, reading in enumerate(readings):
-        if reading.label_present in on and start is None:
+        inside = state(reading) in states
+        if inside and start is None:
             start = reading.t
-        is_last = i == len(readings) - 1 or readings[i + 1].label_present not in on
-        if start is not None and is_last:
+        if start is not None and (i == len(readings) - 1 or state(readings[i + 1]) not in states):
             spans.append(Span(t_start=start, t_end=round(min(duration_s, reading.t + 1 / fps), 3)))
             start = None
     return spans
-
-
-def unknown_spans(readings: list[FrameReading], fps: float, duration_s: float) -> list[Span]:
-    """Time spans of frames the model gave no answer for."""
-    flipped = [FrameReading(r.t, r.label_present is None) for r in readings]
-    return label_spans(flipped, fps, duration_s)
 
 
 def longest(spans: list[Span]) -> float:
@@ -41,11 +47,13 @@ def longest(spans: list[Span]) -> float:
 
 
 def label_track(readings: list[FrameReading], fps: float, duration_s: float) -> Track:
-    """The disclosure-label track, named after the label text read most often."""
-    spans = label_spans(readings, fps, duration_s)
-    texts = Counter(r.label_text for r in readings if r.label_present and r.label_text)
+    """The disclosure track (labels and captions with a 1.3a label), named after its most frequent text."""
+    spans = spans_where(readings, DISCLOSED, fps, duration_s)
+    permitted = Counter(r.label_text for r in readings if state(r) in DISCLOSED)
+    other = Counter(r.label_text for r in readings if state(r) == "unlisted" and r.label_text)
+    name = (permitted or other).most_common(1)[0][0] if (permitted or other) else "Disclosure label"
     return Track(
-        label=texts.most_common(1)[0][0] if texts else "Disclosure label",
+        label=name,
         kind="disclosure_label",
         spans=spans,
         first_seen_s=spans[0].t_start if spans else None,

@@ -32,6 +32,10 @@
   "$defs": {
     "seconds": { "type": "number", "minimum": 0 },
     "verdict": { "enum": ["PASS", "FAIL", "REVIEW"] },
+    "check_verdict": {
+      "description": "INFO: reported but never decides the overall verdict (e.g. spoken disclosure, which ASCI requires only for live streams and audio).",
+      "enum": ["PASS", "FAIL", "REVIEW", "INFO"]
+    },
     "video": {
       "type": "object",
       "additionalProperties": false,
@@ -62,7 +66,10 @@
       "properties": {
         "t_start": { "$ref": "#/$defs/seconds" },
         "t_end": { "$ref": "#/$defs/seconds" },
-        "kind": { "enum": ["frame", "audio"] },
+        "kind": {
+          "description": "label: on-screen tag or overlay; caption: superimposed subtitles; frame: other frame evidence; audio: speech.",
+          "enum": ["frame", "audio", "label", "caption"]
+        },
         "note": { "type": "string" }
       }
     },
@@ -87,7 +94,7 @@
       "properties": {
         "id": { "enum": ["label_present", "label_duration", "spoken_disclosure", "label_language"] },
         "title": { "type": "string", "minLength": 1 },
-        "verdict": { "$ref": "#/$defs/verdict" },
+        "verdict": { "$ref": "#/$defs/check_verdict" },
         "detail": { "type": "string" },
         "clause": { "oneOf": [{ "$ref": "#/$defs/clause" }, { "type": "null" }] },
         "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence" } },

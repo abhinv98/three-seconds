@@ -2,9 +2,11 @@
 
 Frames are sampled at 2 fps and scaled to at most 720 px wide with ffmpeg:
 
-    ffmpeg -i input.mp4 -vf "fps=2,scale='min(720,iw)':-2" -q:v 3 frames/%05d.jpg
+    ffmpeg -i input.mp4 -vf "fps=2:round=up,scale='min(720,iw)':-2" -q:v 3 frames/%05d.jpg
 
-Frame i of the output is the video at i / fps seconds.
+Frame i of the output is the video at i / fps seconds. round=up matters: the fps filter fills each output
+slot with the last source frame that rounds into it, so the default round=near shows up to half an
+interval (0.23s at 30 fps) after the slot's timestamp.
 """
 
 from __future__ import annotations
@@ -90,7 +92,7 @@ def sample_frames(video: Path, out_dir: Path, fps: float = SAMPLE_FPS) -> list[F
         One Frame per sample, in time order.
     """
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"fps={fps},scale='min({MAX_WIDTH},iw)':-2"]
+        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"fps={fps}:round=up,scale='min({MAX_WIDTH},iw)':-2"]
         + ["-q:v", "3", str(out_dir / "%05d.jpg")],
         check=False,
         capture_output=True,
