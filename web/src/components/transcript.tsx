@@ -11,12 +11,14 @@ const LANGUAGE_NAMES: Record<string, string> = {
 
 interface TranscriptProps {
   segments: TranscriptSegment[];
+  /** False when the audio stage didn't run, so an empty transcript isn't "no speech". */
+  audioChecked: boolean;
   disclosureTimes: number[];
   time: number;
   onSeek: (t: number) => void;
 }
 
-export function Transcript({ segments, disclosureTimes, time, onSeek }: TranscriptProps) {
+export function Transcript({ segments, audioChecked, disclosureTimes, time, onSeek }: TranscriptProps) {
   const languages = [...new Set(segments.map((s) => LANGUAGE_NAMES[s.lang] ?? s.lang))];
   return (
     <section aria-labelledby="transcript-heading">
@@ -27,7 +29,9 @@ export function Transcript({ segments, disclosureTimes, time, onSeek }: Transcri
         {languages.length > 0 && <p className="ts-caption text-muted-foreground">{languages.join(", ")}</p>}
       </div>
       {segments.length === 0 ? (
-        <p className="ts-body-sm py-4 text-muted-foreground">No speech found.</p>
+        <p className="ts-body-sm py-4 text-muted-foreground">
+          {audioChecked ? "No speech found." : "Audio not checked yet."}
+        </p>
       ) : (
         <ol className="divide-y divide-border">
           {segments.map((segment, i) => {

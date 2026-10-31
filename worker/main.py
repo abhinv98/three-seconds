@@ -3,11 +3,16 @@
 Run locally:  uv run uvicorn main:app --reload --port 8000
 """
 
+import logging
+
 from fastapi import FastAPI, HTTPException
 
 from models import AnalyzeRequest, Report
 from pipeline.frames import VideoError
 from pipeline.report import build_report
+
+# Pipeline logs (frames read, edge refinement, cost per video) next to uvicorn's own lines.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
 
 app = FastAPI(title="Three Seconds worker", version="0.1.0")
 

@@ -200,8 +200,8 @@ export function CheckPosters() {
         title="Label language"
         check="label_language"
         model="Muse Spark"
-        status="review"
-        rule="Whether the label is in the language the audience hears. A Hinglish Reel with an English-only label needs a second look."
+        status="pass"
+        rule="Whether the label is in English or in the ad's own language, as ASCI 1.3b asks. On a Hinglish Reel, either label passes."
       >
         <LanguageSwap />
       </Poster>

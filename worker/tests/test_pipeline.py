@@ -1,9 +1,12 @@
+import json
 import subprocess
 
 import pytest
 
+import llm
 from models import Check
 from pipeline.frames import sample_frames
+from pipeline.report import analyze_video
 from pipeline.rules import evaluate_rules, overall_verdict
 from pipeline.track import label_track
 from pipeline.vision import FrameReading, parse_readings
@@ -65,7 +68,7 @@ def test_label_duration_uses_the_longest_stretch_not_the_total():
     check = checks_for(28, "L" * 10 + "-" * 4 + "L" * 10)["label_duration"]  # 5s + 5s
     assert check.verdict == "FAIL"
     assert (
-        check.detail == "Label held 5.0s at most in one stretch; this 28.0s video needs 9.3s. On screen 10.0s in all."
+        check.detail == "Label held 5.0s at most in one stretch; this 28.0s video needs 9.33s. On screen 10.0s in all."
     )
 
 
@@ -73,12 +76,6 @@ def test_unknown_or_unlisted_frames_turn_a_would_be_fail_into_review():
     assert checks_for(12, "L" * 4 + "??")["label_duration"].verdict == "REVIEW"  # 2.0s sure, 3.0s at most
     assert checks_for(12, "L" * 4 + "XX")["label_duration"].verdict == "REVIEW"
     assert checks_for(12, "L" * 4 + "?")["label_duration"].verdict == "FAIL"  # 2.5s at most
-
-
-def test_over_two_minutes_is_outside_mvp_scope():
-    check = checks_for(121, "L" * 200)["label_duration"]
-    assert (check.verdict, check.clause) == ("REVIEW", None)
-    assert "outside MVP scope" in check.detail
 
 
 @pytest.mark.parametrize(
@@ -101,7 +98,10 @@ def test_label_present_needs_a_1_3a_label(frames, verdict, evidence_kind):
 
 def test_spoken_disclosure_is_info_and_never_decides_the_verdict():
     checks = checks_for(12, "L" * 6)
-    assert checks["spoken_disclosure"].verdict == "INFO"
+    assert (checks["spoken_disclosure"].verdict, checks["spoken_disclosure"].detail) == (
+        "INFO",
+        "Audio not checked yet.",
+    )
     assert overall_verdict(list(checks.values())) == "PASS"
 
 
@@ -125,3 +125,78 @@ def test_sampled_frame_shows_the_video_at_its_timestamp(tmp_path):
         return rgb[0] > rgb[2]
 
     assert [red(frames[t]) for t in (1.5, 2.0, 2.5)] == [True, True, False]
+
+
+@pytest.fixture(scope="module")
+def blank_12s(tmp_path_factory):
+    """A 12s video; fake_model decides what each frame shows."""
+    video = tmp_path_factory.mktemp("video") / "blank.mp4"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=32x32:r=30:d=12", "-pix_fmt", "yuv420p"]
+        + [str(video)],
+        check=True,
+    )
+    return video
+
+
+def fake_model(monkeypatch, label_from: float, label_to: float, answer_off_grid: bool = True) -> list[float]:
+    """The model sees "Paid partnership" for label_from <= t < label_to. Returns every t it was asked about.
+
+    With answer_off_grid=False it gives no answer for frames between the 2 fps slots (10 fps edge frames).
+    """
+    asked: list[float] = []
+
+    def chat(messages, **params):
+        times = [
+            float(p["text"][2:]) for p in messages[0]["content"] if p["type"] == "text" and p["text"].startswith("t=")
+        ]
+        asked.extend(times)
+        rows = [
+            {"t": t, "label_present": label_from <= t < label_to, "kind": "label", "label_text": "Paid partnership"}
+            for t in times
+            if answer_off_grid or (t * 2).is_integer()
+        ]
+        return llm.Reply(json.dumps(rows), 1000, 100, 0.002)
+
+    monkeypatch.setattr(llm, "chat", chat)
+    return asked
+
+
+@pytest.mark.parametrize(
+    ("label_from", "label_to", "held", "verdict", "edge_frames"),
+    [
+        # 2 fps sees 0.5-3.5 (3.0s, a PASS for 3s); 10 fps finds 0.4-3.3, 2.9s: FAIL.
+        (
+            0.35,
+            3.3,
+            2.9,
+            "FAIL",
+            [round(0.1 * k, 1) for k in range(11)] + [round(0.1 * k, 1) for k in range(30, 41)],
+        ),
+        # 2 fps sees 0.0-3.5 (3.5s); the start is the video's, so only the end is re-read: 3.3s, PASS.
+        (0.0, 3.25, 3.3, "PASS", [round(0.1 * k, 1) for k in range(30, 41)]),
+        # 2 fps sees 2.0s, a whole interval short of 3s: no re-read.
+        (0.0, 1.85, 2.0, "FAIL", []),
+    ],
+)
+def test_edges_are_re_read_at_10_fps_when_the_hold_is_within_half_a_second(
+    monkeypatch, blank_12s, label_from, label_to, held, verdict, edge_frames
+):
+    asked = fake_model(monkeypatch, label_from, label_to)
+    analysis = analyze_video(blank_12s, "blank.mp4", "local")
+    [track] = analysis.report.tracks
+    duration = next(c for c in analysis.report.checks if c.id == "label_duration")
+    assert (track.longest_continuous_s, duration.verdict) == (held, verdict)
+    assert [r.t for r in analysis.edge_readings] == edge_frames
+    assert len(asked) == 24 + len(edge_frames)  # 2 fps over 12s, then the edges
+    assert len(analysis.edge_replies) == -(-len(edge_frames) // 8)
+    assert ("edges measured at 10 fps" in duration.detail) == bool(edge_frames)
+
+
+def test_unreadable_edge_frames_are_within_measurement_margin(monkeypatch, blank_12s):
+    fake_model(monkeypatch, 0.35, 3.3, answer_off_grid=False)
+    analysis = analyze_video(blank_12s, "blank.mp4", "local")
+    duration = next(c for c in analysis.report.checks if c.id == "label_duration")
+    assert duration.verdict == "REVIEW"
+    assert duration.detail.startswith("Within measurement margin.")
+    assert sum(r.label_present is None for r in analysis.edge_readings) == 16  # 22 edge frames, 6 on the 2 fps grid

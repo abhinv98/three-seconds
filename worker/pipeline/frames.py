@@ -7,11 +7,16 @@ Frames are sampled at 2 fps and scaled to at most 720 px wide with ffmpeg:
 Frame i of the output is the video at i / fps seconds. round=up matters: the fps filter fills each output
 slot with the last source frame that rounds into it, so the default round=near shows up to half an
 interval (0.23s at 30 fps) after the slot's timestamp.
+
+When a label's hold lands within one 2 fps interval of what ASCI requires, its edges are re-sampled
+at 10 fps (EDGE_FPS) inside short windows: the same filter, plus select='eq(n,k)+...' keeping only
+the slots k inside the windows.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import urllib.request
 from dataclasses import dataclass
@@ -19,6 +24,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 SAMPLE_FPS = 2.0
+EDGE_FPS = 10.0
 MAX_WIDTH = 720
 MAX_BYTES = 100 * 1024 * 1024
 """Same limits as web/src/lib/limits.ts; the worker enforces them again because its URL is public."""
@@ -80,24 +86,37 @@ def probe(video: Path) -> tuple[float, int, int]:
     return duration, int(stream["width"]), int(stream["height"])
 
 
-def sample_frames(video: Path, out_dir: Path, fps: float = SAMPLE_FPS) -> list[Frame]:
+def sample_frames(
+    video: Path, out_dir: Path, fps: float = SAMPLE_FPS, windows: list[tuple[float, float]] | None = None
+) -> list[Frame]:
     """Sample frames from the video at `fps`, at most MAX_WIDTH wide.
 
     Args:
         video: Local video file.
         out_dir: Empty directory for the JPEGs.
         fps: Sampling rate; the report contract records it as video.fps_sampled.
+        windows: (start, end) seconds. If given, only the slots inside them (ends included) are kept.
 
     Returns:
         One Frame per sample, in time order.
     """
+    vf = f"fps={fps}:round=up"
+    slots: list[int] | None = None
+    if windows:
+        slots = sorted(
+            {k for a, b in windows for k in range(max(0, math.ceil(a * fps - 1e-6)), math.floor(b * fps + 1e-6) + 1)}
+        )
+        vf += ",select='" + "+".join(f"eq(n,{k})" for k in slots) + "'"
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"fps={fps}:round=up,scale='min({MAX_WIDTH},iw)':-2"]
-        + ["-q:v", "3", str(out_dir / "%05d.jpg")],
+        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"{vf},scale='min({MAX_WIDTH},iw)':-2"]
+        + ["-fps_mode", "passthrough", "-q:v", "3", str(out_dir / "%05d.jpg")],
         check=False,
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         raise VideoError(f"ffmpeg could not read the video: {result.stderr.strip()[:200]}")
-    return [Frame(t=round(i / fps, 3), path=p) for i, p in enumerate(sorted(out_dir.glob("*.jpg")))]
+    paths = sorted(out_dir.glob("*.jpg"))
+    # Slots past the end of the video produce no file; zip drops them.
+    times = [k / fps for k in slots] if slots is not None else [i / fps for i in range(len(paths))]
+    return [Frame(t=round(t, 3), path=p) for t, p in zip(times, paths, strict=False)]

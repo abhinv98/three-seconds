@@ -14,6 +14,7 @@
     "checks",
     "tracks",
     "transcript",
+    "audio_checked",
     "models_used",
     "generated_at"
   ],
@@ -26,6 +27,10 @@
     "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
     "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" } },
     "transcript": { "type": "array", "items": { "$ref": "#/$defs/transcript_segment" } },
+    "audio_checked": {
+      "type": "boolean",
+      "description": "False when the audio stage didn't run: an empty transcript then means nothing listened, not that nothing was said."
+    },
     "models_used": { "type": "array", "items": { "type": "string" } },
     "generated_at": { "type": "string", "format": "date-time" }
   },

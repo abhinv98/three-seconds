@@ -1,4 +1,5 @@
 import { Icon } from "@/components/icon";
+import { ASCI_SOURCE_URL } from "@/lib/asci";
 
 const QUESTIONS = [
   {
@@ -23,7 +24,22 @@ const QUESTIONS = [
   },
   {
     q: "Are the cited clauses final?",
-    a: "Not yet. During the beta every check cites ASCI-PENDING until its clause text and thresholds are verified against the published guideline. We'd rather say so than guess.",
+    a: (
+      <>
+        Yes. Every check quotes its clause word for word from ASCI&apos;s Guidelines for Influencer Advertising in
+        Digital Media: 1.2e.I and 1.2e.II for how long the label stays on screen, 1.3a for the permitted labels and
+        1.3b for their language.{" "}
+        <a
+          href={ASCI_SOURCE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xs text-brand-text underline decoration-1 underline-offset-2 hover:decoration-2"
+        >
+          Read the guideline (PDF)
+        </a>
+        .
+      </>
+    ),
   },
 ];
 

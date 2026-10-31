@@ -132,6 +132,7 @@ function ReportBody({ report }: { report: Report }) {
 
           <Transcript
             segments={report.transcript}
+            audioChecked={report.audio_checked}
             disclosureTimes={spoken.map((m) => m.t)}
             time={time}
             onSeek={seek}

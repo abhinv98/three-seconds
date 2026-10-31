@@ -87,6 +87,7 @@ class Report(Strict):
     checks: list[Check]
     tracks: list[Track]
     transcript: list[TranscriptSegment]
+    audio_checked: bool
     models_used: list[str]
     generated_at: AwareDatetime
 

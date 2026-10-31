@@ -3,7 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 import { buttonVariants } from "@/components/ui/button";
-import { ACCEPT_ATTRIBUTE } from "@/lib/limits";
+import { ACCEPT_ATTRIBUTE, MAX_DURATION_S } from "@/lib/limits";
 import { cn } from "@/lib/utils";
 
 interface UploadDropzoneProps {
@@ -82,7 +82,7 @@ export function UploadDropzone({ onFile, busy, error }: UploadDropzoneProps) {
           Choose video
         </span>
         <span id={hintId} className="ts-caption text-muted-foreground">
-          MP4 or MOV · up to 90s · up to 100 MB
+          Up to {MAX_DURATION_S} seconds · MP4 or MOV · up to 100 MB
         </span>
       </label>
       {error && (

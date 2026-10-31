@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { buildMockReport } from "@/lib/mock";
 
-export const maxDuration = 60;
+// The worker reads frames with Muse Spark Open (8-30s per request) and, when the label's hold is within
+// half a second of the requirement, re-reads its edges at 10 fps: a second round trip. Fluid compute allows 300s.
+export const maxDuration = 300;
 
 interface AnalyzeBody {
   blobUrl: string;
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
           width: body.width,
           height: body.height,
         }),
-        signal: AbortSignal.timeout(55_000),
+        signal: AbortSignal.timeout(290_000),
       });
       const report = await response.json().catch(() => null);
       if (!response.ok || !report) {

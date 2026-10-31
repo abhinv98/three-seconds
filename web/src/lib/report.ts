@@ -81,6 +81,8 @@ export interface Report {
   checks: Check[];
   tracks: Track[];
   transcript: TranscriptSegment[];
+  /** False when the audio stage didn't run: an empty transcript then means nothing listened. */
+  audio_checked: boolean;
   models_used: string[];
   generated_at: string;
 }

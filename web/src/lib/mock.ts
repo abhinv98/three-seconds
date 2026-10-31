@@ -1,4 +1,5 @@
 import fixture from "../../../shared/fixtures/mock-report.json";
+import { formatHold, requiredHold } from "./asci";
 import { formatSeconds, formatTimecode, parseTimecode } from "./format";
 import type { Report } from "./report";
 
@@ -39,6 +40,10 @@ export function buildMockReport(input: MockReportInput): Report {
   const k = duration / base.video.duration_s;
   const t = (x: number) => Math.min(duration, round1(x * k));
   const text = (s: string) => scaleTimesInText(s, k);
+  // 1.2e's hold isn't proportional (3s up to 15s, then a third), so label_duration's is recomputed, not scaled.
+  const hold = requiredHold(duration);
+  const holdText = (s: string) =>
+    s.replace(/(needs|at least) \d+(?:\.\d+)?s/g, (_, word: string) => `${word} ${formatHold(hold.seconds)}`);
 
   return {
     ...base,
@@ -52,17 +57,26 @@ export function buildMockReport(input: MockReportInput): Report {
       width: input.width && input.width > 0 ? Math.round(input.width) : base.video.width,
       height: input.height && input.height > 0 ? Math.round(input.height) : base.video.height,
     },
-    checks: base.checks.map((check) => ({
-      ...check,
-      detail: text(check.detail),
-      evidence: check.evidence.map((e) => ({
-        ...e,
-        t_start: t(e.t_start),
-        t_end: t(e.t_end),
-        note: text(e.note),
-      })),
-      fix: check.fix ? { steps: check.fix.steps.map(text) } : (check.fix ?? null),
-    })),
+    checks: base.checks.map((check) => {
+      const scaled = {
+        ...check,
+        detail: text(check.detail),
+        evidence: check.evidence.map((e) => ({
+          ...e,
+          t_start: t(e.t_start),
+          t_end: t(e.t_end),
+          note: text(e.note),
+        })),
+        fix: check.fix ? { steps: check.fix.steps.map(text) } : (check.fix ?? null),
+      };
+      if (check.id !== "label_duration") return scaled;
+      return {
+        ...scaled,
+        clause: hold.clause,
+        detail: holdText(scaled.detail),
+        fix: scaled.fix ? { steps: scaled.fix.steps.map(holdText) } : scaled.fix,
+      };
+    }),
     tracks: base.tracks.map((track) => ({
       ...track,
       spans: track.spans.map((s) => ({ t_start: t(s.t_start), t_end: t(s.t_end) })),

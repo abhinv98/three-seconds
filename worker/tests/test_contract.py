@@ -76,7 +76,8 @@ def test_analyze_runs_the_pipeline_on_the_uploaded_file(monkeypatch):
         {"t_start": 5.0, "t_end": 5.5, "kind": "frame", "note": "Frames could not be read"},
     ]
     assert checks["spoken_disclosure"]["verdict"] == "INFO"
-    assert checks["spoken_disclosure"]["detail"].startswith("Audio check coming.")
+    assert checks["spoken_disclosure"]["detail"] == "Audio not checked yet."
+    assert report["audio_checked"] is False
     assert report["verdict"] == "FAIL"
 
 

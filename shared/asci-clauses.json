@@ -1,0 +1,22 @@
+{
+  "$comment": "Verbatim from ASCI's Guidelines for Influencer Advertising in Digital Media (Addendum II, 17 August 2023). Cited by worker/pipeline/asci.py, web/src/lib/asci.ts and shared/fixtures/mock-report.json.",
+  "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf",
+  "clauses": [
+    {
+      "code": "ASCI-IG 1.2e.I",
+      "text": "For videos that last 15 seconds or lesser, the disclosure label must stay for a minimum of 3 seconds."
+    },
+    {
+      "code": "ASCI-IG 1.2e.II",
+      "text": "For videos longer than 15 seconds, but less than 2 minutes, the disclosure label should stay for 1/3rd the length of the video."
+    },
+    {
+      "code": "ASCI-IG 1.3a",
+      "text": "Following is the list of disclosure labels permitted. Any one or more can be used: Advertisement, Ad, Sponsored, Collaboration, Partnership, Employee, Free gift, “Paid Partnership” tag on Instagram, Affiliate, “Includes Paid Promotion” tag on YouTube."
+    },
+    {
+      "code": "ASCI-IG 1.3b",
+      "text": "The disclosure should be in English OR in the language as the advertisement itself, in a way that is easy for an average consumer to understand."
+    }
+  ]
+}

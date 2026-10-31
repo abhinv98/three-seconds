@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { AsciiGL } from "@/components/ascii/ascii-gl";
 import { Logo } from "@/components/logo";
+import { ASCI_SOURCE_URL } from "@/lib/asci";
 import { HeroDropBar } from "./hero-drop-bar";
 import { createTerrainPainter, DUSK, FEED_RAMP, NIGHT_WASH, OVERFLY_HORIZON } from "./terrain";
 
@@ -28,7 +29,7 @@ const COLUMNS = [
     title: "The rules",
     links: [
       { href: "#call", label: "How a call is made" },
-      { href: "#faq", label: "Why clauses read ASCI-PENDING" },
+      { href: ASCI_SOURCE_URL, label: "The ASCI guideline (PDF)" },
       { href: "#faq", label: "Where your video goes" },
     ],
   },
@@ -117,7 +118,7 @@ export function LandingFooter() {
         <div className="h-[calc(var(--range-h)*0.6)]" />
         <div className="ts-caption mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 pt-2 pb-8 text-white/75 sm:px-6">
           <span>© 2026 Three Seconds</span>
-          <span>Not legal advice. Clauses read ASCI-PENDING until verified.</span>
+          <span>Not legal advice. Clauses are quoted from ASCI&apos;s influencer guidelines.</span>
         </div>
       </div>
     </footer>

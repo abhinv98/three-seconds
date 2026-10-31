@@ -3,9 +3,11 @@ import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import schema from "../../../shared/report.schema.json";
 import fixture from "../../../shared/fixtures/mock-report.json";
+import { asciClause } from "./asci";
 import { formatTimecode } from "./format";
 import { buildMockReport, scaleTimesInText } from "./mock";
 import type { Report } from "./report";
+import { timelineSummary } from "./summary";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
@@ -33,10 +35,10 @@ describe("report contract", () => {
     expect(report.verdict).toBe("FAIL");
   });
 
-  it("never invents a clause: every check cites ASCI-PENDING", () => {
-    for (const check of (fixture as Report).checks) {
-      expect(check.clause?.code).toBe("ASCI-PENDING");
-    }
+  it("never invents a clause: every cited clause is quoted from shared/asci-clauses.json", () => {
+    const cited = (fixture as Report).checks.flatMap((c) => (c.clause ? [c.clause] : []));
+    expect(cited.map((c) => c.code)).toEqual(["ASCI-IG 1.3a", "ASCI-IG 1.2e.II", "ASCI-IG 1.3b"]);
+    for (const clause of cited) expect(clause).toEqual(asciClause(clause.code));
   });
 });
 
@@ -66,7 +68,20 @@ describe("buildMockReport", () => {
       ...report.transcript.flatMap((s) => [s.t_start, s.t_end]),
     ];
     expect(Math.max(...times)).toBeLessThanOrEqual(14);
-    expect(report.checks.find((c) => c.id === "label_duration")?.detail).toContain("Label held 0.9s.");
+    expect(report.checks.find((c) => c.id === "label_duration")?.detail).toContain("Label held 0.9s in one stretch");
+  });
+
+  it("applies 1.2e to the real length instead of scaling the 28s story's hold", () => {
+    const hold = (durationS: number) => {
+      const report = buildMockReport({ filename: "a.mp4", blobUrl: "blob:local", durationS });
+      const check = report.checks.find((c) => c.id === "label_duration");
+      const needs = check?.detail.match(/needs (\S+)\./)?.[1];
+      const atLeast = check?.fix?.steps[0].match(/at least (\S+) /)?.[1];
+      return [check?.clause?.code, needs, atLeast];
+    };
+    expect(hold(14)).toEqual(["ASCI-IG 1.2e.I", "3.0s", "3.0s"]);
+    expect(hold(28)).toEqual(["ASCI-IG 1.2e.II", "9.33s", "9.33s"]);
+    expect(hold(60)).toEqual(["ASCI-IG 1.2e.II", "20.0s", "20.0s"]);
   });
 
   it("rewrites times inside sentences", () => {
@@ -74,5 +89,19 @@ describe("buildMockReport", () => {
       `Label held 3.6s. Brand appears at ${formatTimecode(6)}.`,
     );
     expect(scaleTimesInText("No times here, 5 fps.", 2)).toBe("No times here, 5 fps.");
+  });
+});
+
+describe("timelineSummary", () => {
+  it("says audio wasn't checked instead of claiming nothing was said", () => {
+    const noAudio: Report = {
+      ...(fixture as Report),
+      transcript: [],
+      audio_checked: false,
+      checks: (fixture as Report).checks.map((c) => (c.id === "spoken_disclosure" ? { ...c, evidence: [] } : c)),
+    };
+    expect(timelineSummary(noAudio)).toContain("Audio not checked yet.");
+    expect(timelineSummary(noAudio)).not.toContain("No spoken disclosure found");
+    expect(timelineSummary({ ...noAudio, audio_checked: true })).toContain("No spoken disclosure found.");
   });
 });

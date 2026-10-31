@@ -18,12 +18,12 @@
       "verdict": "PASS",
       "detail": "\"Paid partnership\" label on screen from 00:00.4.",
       "clause": {
-        "code": "ASCI-PENDING",
-        "text": "Clause text to be verified against the ASCI guideline",
-        "source_url": null
+        "code": "ASCI-IG 1.3a",
+        "text": "Following is the list of disclosure labels permitted. Any one or more can be used: Advertisement, Ad, Sponsored, Collaboration, Partnership, Employee, Free gift, “Paid Partnership” tag on Instagram, Affiliate, “Includes Paid Promotion” tag on YouTube.",
+        "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf"
       },
       "evidence": [
-        { "t_start": 0.4, "t_end": 2.2, "kind": "frame", "note": "\"Paid partnership\" label, top left" }
+        { "t_start": 0.4, "t_end": 2.2, "kind": "label", "note": "\"Paid partnership\" label, top left" }
       ],
       "fix": null
     },
@@ -31,20 +31,20 @@
       "id": "label_duration",
       "title": "Label held long enough",
       "verdict": "FAIL",
-      "detail": "Label held 1.8s. It is gone before the brand appears at 00:03.0. Required hold not yet verified.",
+      "detail": "Label held 1.8s in one stretch; this 28.0s video needs 9.33s. It is gone before the brand appears at 00:03.0.",
       "clause": {
-        "code": "ASCI-PENDING",
-        "text": "Clause text to be verified against the ASCI guideline",
-        "source_url": null
+        "code": "ASCI-IG 1.2e.II",
+        "text": "For videos longer than 15 seconds, but less than 2 minutes, the disclosure label should stay for 1/3rd the length of the video.",
+        "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf"
       },
       "evidence": [
-        { "t_start": 0.4, "t_end": 2.2, "kind": "frame", "note": "Label on screen" },
+        { "t_start": 0.4, "t_end": 2.2, "kind": "label", "note": "Label on screen" },
         { "t_start": 3.0, "t_end": 7.5, "kind": "frame", "note": "Brand on screen, no label" },
         { "t_start": 12.0, "t_end": 16.4, "kind": "frame", "note": "Brand on screen, no label" },
         { "t_start": 22.5, "t_end": 27.0, "kind": "frame", "note": "Brand on screen, no label" }
       ],
       "fix": {
-        "steps": ["Keep the label on screen for as long as the brand is visible, 00:03.0 to 00:27.0."]
+        "steps": ["Keep the label on screen for at least 9.33s without a break, from before the brand appears at 00:03.0."]
       }
     },
     {
@@ -52,11 +52,7 @@
       "title": "Spoken disclosure",
       "verdict": "PASS",
       "detail": "Said at 00:21.0: \"Yeh video sponsored hai.\"",
-      "clause": {
-        "code": "ASCI-PENDING",
-        "text": "Clause text to be verified against the ASCI guideline",
-        "source_url": null
-      },
+      "clause": null,
       "evidence": [
         { "t_start": 21.0, "t_end": 22.4, "kind": "audio", "note": "\"Yeh video sponsored hai.\" Hinglish" }
       ],
@@ -64,21 +60,19 @@
     },
     {
       "id": "label_language",
-      "title": "Label language matches speech",
-      "verdict": "REVIEW",
-      "detail": "Label is in English. Speech is Hinglish. Whether they must match is not yet verified.",
+      "title": "Label in English or the ad's language",
+      "verdict": "PASS",
+      "detail": "Label is in English, which ASCI accepts for an ad in any language. Speech is Hinglish.",
       "clause": {
-        "code": "ASCI-PENDING",
-        "text": "Clause text to be verified against the ASCI guideline",
-        "source_url": null
+        "code": "ASCI-IG 1.3b",
+        "text": "The disclosure should be in English OR in the language as the advertisement itself, in a way that is easy for an average consumer to understand.",
+        "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf"
       },
       "evidence": [
-        { "t_start": 0.4, "t_end": 2.2, "kind": "frame", "note": "Label text \"Paid partnership\", English" },
+        { "t_start": 0.4, "t_end": 2.2, "kind": "label", "note": "Label text \"Paid partnership\", English" },
         { "t_start": 0.5, "t_end": 27.6, "kind": "audio", "note": "Speech, mostly Hinglish" }
       ],
-      "fix": {
-        "steps": ["Add a Hindi label next to the English one, for example \"सशुल्क साझेदारी\"."]
-      }
+      "fix": null
     }
   ],
   "tracks": [
@@ -116,6 +110,7 @@
     { "t_start": 22.6, "t_end": 24.8, "text": "Link bio mein hai.", "lang": "hi-Latn" },
     { "t_start": 25.2, "t_end": 27.6, "text": "Try karke batao kaisa laga!", "lang": "hi-Latn" }
   ],
+  "audio_checked": true,
   "models_used": ["mock-fixture"],
   "generated_at": "2026-10-25T18:30:00Z"
 }

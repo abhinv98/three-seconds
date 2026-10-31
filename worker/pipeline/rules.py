@@ -1,13 +1,18 @@
 """Rule checks from the measured disclosure track, per ASCI's influencer guidelines (pipeline/asci.py).
 
 Unlisted ("Collab") and unknown frames never count as disclosed or as absent: a verdict they could
-change is REVIEW.
+change is REVIEW. When the hold is within one 2 fps interval of the requirement, the label's edges are
+re-read at 10 fps first (report.analyze_video); if any of those frames can't be read, label_duration
+is REVIEW "Within measurement margin".
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from models import Check, CheckVerdict, Evidence, Fix, Track, Verdict
 from pipeline import asci
+from pipeline.frames import EDGE_FPS
 from pipeline.track import DISCLOSED, UNCERTAIN, longest, spans_where, state
 from pipeline.vision import FrameReading
 
@@ -19,19 +24,32 @@ def timecode(seconds: float) -> str:
     return f"{minutes:02d}:{rest / 10:04.1f}"
 
 
-def evaluate_rules(readings: list[FrameReading], track: Track, fps: float, duration_s: float) -> list[Check]:
-    """label_present, label_duration and spoken_disclosure, in that order."""
+def seconds(x: float) -> str:
+    """3.0s, 9.5s; 9.33s for a third of 28s, so a 9.3s hold doesn't read as meeting it."""
+    return f"{x:.1f}s" if abs(x * 10 - round(x * 10)) < 1e-9 else f"{x:.2f}s"
+
+
+def evaluate_rules(
+    readings: list[FrameReading],
+    track: Track,
+    fps: float,
+    duration_s: float,
+    edge_readings: Sequence[FrameReading] = (),
+) -> list[Check]:
+    """label_present, label_duration and spoken_disclosure, in that order.
+
+    edge_readings are the 10 fps re-reads around the label's edges, already merged into readings; empty
+    when the hold wasn't close enough to the requirement to need them.
+    """
     return [
         _label_present(readings, track, fps, duration_s),
-        _label_duration(readings, track, fps, duration_s),
+        _label_duration(readings, track, fps, duration_s, edge_readings),
         Check(
             id="spoken_disclosure",
             title="Spoken disclosure",
+            # INFO, never FAIL: ASCI asks for a spoken disclosure only in live streams (1.2f) and audio (1.2g).
             verdict="INFO",
-            detail=(
-                "Audio check coming. ASCI requires a spoken disclosure only for live streams (1.2f) and audio"
-                " content (1.2g), so this check never fails a video."
-            ),
+            detail="Audio not checked yet.",
             clause=None,
             evidence=[],
         ),
@@ -102,33 +120,33 @@ def _label_present(readings: list[FrameReading], track: Track, fps: float, durat
     )
 
 
-def _label_duration(readings: list[FrameReading], track: Track, fps: float, duration_s: float) -> Check:
+def _label_duration(
+    readings: list[FrameReading], track: Track, fps: float, duration_s: float, edge_readings: Sequence[FrameReading]
+) -> Check:
     evidence = _evidence(readings, fps, duration_s, "label", "caption", "unlisted", "unknown")
     held, total = track.longest_continuous_s, track.total_on_screen_s
-    rule = asci.required_hold(duration_s)
-    if rule is None:
-        return Check(
-            id="label_duration",
-            title="Label held long enough",
-            verdict="REVIEW",
-            detail=f"This {duration_s:.0f}s video is over 2 minutes, outside MVP scope. Label held {held:.1f}s in one stretch.",
-            clause=None,
-            evidence=evidence,
-            fix=Fix(steps=["Check the label hold by eye."]),
-        )
-    need, clause = rule
+    need, clause = asci.required_hold(duration_s)
     at_most = longest(spans_where(readings, DISCLOSED | UNCERTAIN, fps, duration_s))
-    needs = f"this {duration_s:.1f}s video needs {need:.1f}s."
+    measured = f" (edges measured at {EDGE_FPS:g} fps)" if edge_readings else ""
+    needs = f"this {duration_s:.1f}s video needs {seconds(need)}."
     on_screen = f"On screen {total:.1f}s in all."
+    unread_edges = sum(r.label_present is None for r in edge_readings)
     verdict: Verdict
     fix = None
-    if held >= need:
-        verdict, detail = "PASS", f"Label held {held:.1f}s in one stretch; {needs} {on_screen}"
+    if unread_edges:
+        verdict = "REVIEW"
+        fix = Fix(steps=["Check where the label starts and ends by eye; a fraction of a second decides this check."])
+        detail = (
+            f"Within measurement margin. Label held about {held:.1f}s in one stretch and {needs}"
+            f" {unread_edges} frames at its edges could not be read at {EDGE_FPS:g} fps."
+        )
+    elif held >= need:
+        verdict, detail = "PASS", f"Label held {held:.1f}s in one stretch{measured}; {needs} {on_screen}"
     elif at_most < need:
         verdict = "FAIL"
-        fix = Fix(steps=[f"Keep a permitted label on screen for at least {need:.1f}s without a break."])
+        fix = Fix(steps=[f"Keep a permitted label on screen for at least {seconds(need)} without a break."])
         if track.spans:
-            detail = f"Label held {held:.1f}s at most in one stretch; {needs} {on_screen}"
+            detail = f"Label held {held:.1f}s at most in one stretch{measured}; {needs} {on_screen}"
         else:
             detail = f"No permitted label on screen; {needs}"
     else:

@@ -38,9 +38,11 @@ export function timelineSummary(report: Report): string {
   }
   const spoken = spokenMarkers(report);
   parts.push(
-    spoken.length
-      ? `Spoken disclosure at ${spoken.map((m) => formatTimecode(m.t)).join(", ")}.`
-      : "No spoken disclosure found.",
+    !report.audio_checked
+      ? "Audio not checked yet."
+      : spoken.length
+        ? `Spoken disclosure at ${spoken.map((m) => formatTimecode(m.t)).join(", ")}.`
+        : "No spoken disclosure found.",
   );
   return parts.join(" ");
 }
