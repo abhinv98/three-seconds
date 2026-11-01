@@ -1,0 +1,774 @@
+/* ---------------------------------------------------------------------------------------------------------------
+   The cave (app/cave, components/cave3d): always night. The gate is a quiet page; past it, a full-screen 3D street
+   rendered at a third of its size and scaled up, with a pixel HUD on top.
+   --------------------------------------------------------------------------------------------------------------- */
+body:has(.cv, .cv3[data-mode="route"]) {
+  background: #0b0a0a;
+}
+.cv,
+.cv3 {
+  --cv-ink: #f3f1ea;
+  --cv-soft: #aaa39a;
+  --cv-accent: #ea4e12;
+  --cv-accent-lit: #ff8a52;
+  --cv-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --cv-pixel: var(--font-pixel), var(--font-mono), monospace;
+  color: var(--cv-ink);
+}
+:is(.cv, .cv3) ::selection {
+  background: var(--cv-accent);
+  color: #121212;
+}
+:is(.cv, .cv3) :focus-visible {
+  outline: 2px solid var(--cv-accent-lit);
+  outline-offset: 3px;
+}
+
+/* The gate. */
+.cv {
+  display: grid;
+  min-height: 100svh;
+  background: #141210;
+}
+.cv--quiet {
+  place-items: center;
+}
+.cv-wait {
+  color: var(--cv-soft);
+  font-family: var(--cv-pixel);
+}
+.cv-gate {
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 32px 16px 56px;
+  text-align: center;
+}
+.cv-gate__door {
+  margin-bottom: 8px;
+}
+.cv-gate__title {
+  margin: 0;
+  font: 700 clamp(2.25rem, 6vw, 4rem) / 1.02 var(--cv-pixel);
+  text-wrap: balance;
+}
+.cv-gate__text {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--cv-soft);
+  font-size: 1.125rem;
+  text-wrap: pretty;
+}
+.cv-gate__note {
+  max-width: 48ch;
+  margin: 10px 0 0;
+  color: var(--cv-soft);
+  font-size: 0.9375rem;
+}
+.cv-countdown {
+  margin: 6px 0 10px;
+  color: var(--cv-accent-lit);
+  font: 600 clamp(3rem, 11vw, 6rem) / 1 var(--cv-pixel);
+  font-variant-numeric: tabular-nums;
+}
+.cv-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.cv-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 0;
+  background: var(--cv-accent);
+  box-shadow: 4px 4px 0 #121212;
+  color: #121212;
+  font: 600 1.0625rem / 1 var(--cv-pixel);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 120ms var(--cv-ease),
+    box-shadow 120ms var(--cv-ease),
+    background-color 160ms ease;
+}
+.cv-button:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #121212;
+}
+.cv-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cv-button:not(:disabled):hover {
+    background: var(--cv-accent-lit);
+  }
+}
+
+/* The street. */
+.cv3 {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #050608;
+  font-family: var(--cv-pixel);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.cv3-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  cursor: grab;
+  outline: none;
+}
+.cv3-canvas:active {
+  cursor: grabbing;
+}
+.cv3[data-stage="title"] .cv3-canvas,
+.cv3[data-stage="out"] .cv3-canvas {
+  cursor: default;
+}
+.cv3-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Speech, over each Tickle's head. The engine sets the position and types the text in. */
+.cv3-bubble {
+  --who: var(--cv-accent);
+  position: absolute;
+  top: -12px;
+  left: 0;
+  max-width: 24ch;
+  padding: 7px 10px 8px;
+  border: 2px solid #121212;
+  background: #fbfaf6;
+  box-shadow: 3px 3px 0 var(--who);
+  color: #121212;
+  font: 500 15px / 1.25 var(--cv-pixel);
+  white-space: normal;
+  will-change: transform;
+}
+.cv3-bubble:empty {
+  display: none;
+}
+.cv3-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: calc(50% - 4px);
+  width: 8px;
+  height: 8px;
+  background: #121212;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.cv3-bubble[data-who="ms"] {
+  --who: #0a7883;
+}
+.cv3-bubble[data-who="tick"],
+.cv3-bubble[data-who="tock"] {
+  --who: #f2bd45;
+  font-size: 14px;
+}
+.cv3-bubble[data-tone="whisper"] {
+  border-style: dashed;
+  background: #e9e6dc;
+  color: #4a4540;
+}
+.cv3-bubble[data-tone="shout"] {
+  background: #fff4d6;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* HUD. */
+.cv3-hud {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+}
+.cv3-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 2px solid rgb(243 241 234 / 0.22);
+  background: rgb(10 10 12 / 0.66);
+  color: var(--cv-ink);
+  font: 500 14px / 1 var(--cv-pixel);
+  text-decoration: none;
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cv3-chip:hover {
+    border-color: var(--cv-accent-lit);
+  }
+}
+.cv3-hint {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  max-width: min(330px, calc(100vw - 32px));
+  margin: 0;
+  padding: 10px 12px 11px 34px;
+  border: 2px solid var(--cv-accent);
+  background: rgb(10 10 12 / 0.84);
+  box-shadow: 4px 4px 0 rgb(0 0 0 / 0.5);
+  font: 500 15px / 1.3 var(--cv-pixel);
+  animation: cv3-hint 320ms steps(4) both;
+}
+.cv3-hint::before {
+  content: "!";
+  position: absolute;
+  top: 9px;
+  left: 11px;
+  width: 14px;
+  color: var(--cv-accent-lit);
+  font-weight: 700;
+  text-align: center;
+}
+@keyframes cv3-hint {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.cv3-narrator {
+  position: absolute;
+  bottom: max(9vh, 64px);
+  left: 50%;
+  width: max-content;
+  max-width: min(60ch, calc(100vw - 32px));
+  margin: 0;
+  color: #fbfaf6;
+  font: 500 clamp(17px, 2vw, 21px) / 1.35 var(--cv-pixel);
+  text-align: center;
+  text-shadow:
+    2px 2px 0 #000,
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000;
+  text-wrap: balance;
+  transform: translateX(-50%);
+  animation: cv3-say 500ms var(--cv-ease) both;
+}
+@keyframes cv3-say {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+.cv3-caption {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  max-width: calc(100vw - 32px);
+  margin: 0;
+  color: var(--cv-soft);
+  font: 500 14px / 1.3 var(--cv-pixel);
+  text-align: center;
+  text-shadow: 1px 1px 0 #000;
+  transform: translateX(-50%);
+  animation: cv3-say 400ms var(--cv-ease) both;
+}
+
+/* Touch: a pad for walking; dragging the screen looks around. */
+.cv3-pad {
+  position: absolute;
+  bottom: 20px;
+  left: 16px;
+  display: none;
+  grid-template-columns: repeat(3, 54px);
+  grid-template-rows: repeat(2, 54px);
+  gap: 6px;
+}
+.cv3-pad button {
+  border: 2px solid rgb(243 241 234 / 0.3);
+  background: rgb(10 10 12 / 0.55);
+  color: var(--cv-ink);
+  font-size: 18px;
+  touch-action: none;
+}
+.cv3-pad button:active {
+  background: rgb(234 78 18 / 0.6);
+}
+.cv3-pad [data-key="ArrowUp"] {
+  grid-column: 2;
+  grid-row: 1;
+}
+.cv3-pad [data-key="ArrowLeft"] {
+  grid-column: 1;
+  grid-row: 2;
+}
+.cv3-pad [data-key="ArrowDown"] {
+  grid-column: 2;
+  grid-row: 2;
+}
+.cv3-pad [data-key="ArrowRight"] {
+  grid-column: 3;
+  grid-row: 2;
+}
+@media (pointer: coarse) {
+  .cv3-pad {
+    display: grid;
+  }
+  .cv3-narrator {
+    bottom: 150px;
+  }
+  .cv3-title__keys[data-for="mouse"] {
+    display: none;
+  }
+}
+@media not (pointer: coarse) {
+  .cv3-title__keys[data-for="touch"] {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .cv3-hint {
+    top: 60px;
+    right: 16px;
+    left: 16px;
+    max-width: none;
+  }
+}
+
+/* Before you step out: the street waits behind the title. */
+.cv3-title {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 120px clamp(16px, 6vw, 88px) clamp(32px, 9vh, 96px);
+  background: linear-gradient(to top, rgb(5 6 8 / 0.92) 30%, rgb(5 6 8 / 0));
+}
+.cv3-title__name {
+  max-width: 14ch;
+  margin: 0;
+  font: 700 clamp(2.75rem, 7vw, 5.5rem) / 0.98 var(--cv-pixel);
+  text-wrap: balance;
+}
+.cv3-title__text {
+  max-width: 44ch;
+  margin: 0;
+  color: #d9d4cb;
+  font: 400 clamp(1.0625rem, 1.6vw, 1.25rem) / 1.45 var(--font-sans);
+  text-wrap: pretty;
+}
+.cv3-title__keys {
+  margin: 0;
+  color: var(--cv-soft);
+  font-size: 0.9375rem;
+}
+
+/* After they throw you out. */
+.cv3-out {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 32px 16px;
+  background: rgb(5 6 8 / 0.8);
+  text-align: center;
+  overflow-y: auto;
+  animation: cv3-fade 900ms ease both;
+}
+@keyframes cv3-fade {
+  from {
+    opacity: 0;
+  }
+}
+.cv3-out__title {
+  margin: 0;
+  font: 700 clamp(2.25rem, 6vw, 4rem) / 1.02 var(--cv-pixel);
+  text-wrap: balance;
+}
+.cv3-out__text {
+  max-width: 46ch;
+  margin: 0;
+  color: #d9d4cb;
+  font: 400 1.125rem / 1.45 var(--font-sans);
+}
+.cv3-out__time {
+  color: var(--cv-accent-lit);
+  font-family: var(--cv-pixel);
+  font-variant-numeric: tabular-nums;
+}
+.cv3-log {
+  max-width: 52ch;
+  margin: 4px 0 10px;
+  padding-left: 1.4em;
+  color: var(--cv-soft);
+  font: 400 1rem / 1.5 var(--font-sans);
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv3-hint,
+  .cv3-narrator,
+  .cv3-caption,
+  .cv3-out {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Behind the website: on the landing page the game waits under the page while the zipper opens, then comes forward.
+   --------------------------------------------------------------------------------------------------------------- */
+.cv3[data-mode="landing"] {
+  z-index: 0;
+}
+.cv3[data-mode="landing"]:not([data-live]) {
+  pointer-events: none;
+}
+.cv3[data-mode="landing"][data-live] {
+  z-index: 60;
+}
+
+/* Effects the engine draws over the picture. */
+.cv3-flash,
+.cv3-vignette {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.cv3-vignette {
+  background: radial-gradient(ellipse at center, transparent 45%, rgb(120 0 18 / 0.55) 100%);
+  transition: opacity 1.2s ease;
+}
+.cv3-flash {
+  z-index: 5;
+}
+.cv3-foot {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  width: 120px;
+  height: 120px;
+  translate: -20% 100%;
+  background: no-repeat center / contain
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%23121212' d='M3 0h4v6h4v4H1V6h2z'/%3E%3Cpath fill='%23ea4e12' d='M4 1h2v5h4v2H2V7h2z'/%3E%3Cpath fill='%23f3f1ea' d='M1 10h10v2H1z'/%3E%3C/svg%3E");
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+.cv3-foot.is-kick {
+  animation: cv3-kick 300ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes cv3-kick {
+  40% {
+    translate: -20% -10%;
+    rotate: -18deg;
+  }
+}
+.cv3-timer {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  min-width: 3.6ch;
+  padding: 4px 14px 6px;
+  border: 3px solid #121212;
+  background: #d6eeef;
+  box-shadow: 4px 4px 0 #121212;
+  color: #121212;
+  font: 700 clamp(30px, 5vw, 46px) / 1 var(--cv-pixel);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  transform: translateX(-50%);
+}
+.cv3-timer::after {
+  content: "s";
+  margin-left: 2px;
+  font-size: 0.5em;
+}
+.cv3-timer[data-urgent] {
+  background: #f37a88;
+  animation: cv3-urgent 0.5s steps(2) infinite;
+}
+.cv3-timer.is-bonus {
+  animation: cv3-bonus 420ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+@keyframes cv3-urgent {
+  50% {
+    background: #b3152f;
+    color: #fbfaf6;
+  }
+}
+@keyframes cv3-bonus {
+  40% {
+    transform: translateX(-50%) scale(1.25);
+    background: #7cf29a;
+  }
+}
+.cv3-bubble[data-tone="label"] {
+  border-color: #121212;
+  background: #121212;
+  box-shadow: 3px 3px 0 #b3152f;
+  color: #ff8a52;
+  font: 600 16px / 1.2 var(--cv-pixel);
+}
+
+/* The hacks you are carrying, and the button that uses them (or kicks) on a phone. */
+.cv3-items {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cv3-item {
+  padding: 6px 10px;
+  border: 2px solid var(--hack);
+  background: rgb(10 10 12 / 0.8);
+  color: var(--hack);
+  font: 600 14px / 1 var(--cv-pixel);
+  opacity: 0.7;
+}
+.cv3-item[data-next] {
+  opacity: 1;
+  box-shadow: 3px 3px 0 var(--hack);
+}
+.cv3-items__key {
+  color: var(--cv-soft);
+  font: 500 12px / 1 var(--cv-pixel);
+}
+.cv3-act {
+  position: absolute;
+  right: 18px;
+  bottom: 74px;
+  display: none;
+  width: 82px;
+  height: 82px;
+  border: 3px solid #121212;
+  border-radius: 50%;
+  background: var(--cv-accent);
+  box-shadow: 4px 4px 0 #121212;
+  color: #121212;
+  font: 700 16px / 1 var(--cv-pixel);
+  touch-action: none;
+}
+.cv3-act:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #121212;
+}
+@media (pointer: coarse) {
+  .cv3-act {
+    display: block;
+  }
+  .cv3-items {
+    bottom: 170px;
+  }
+}
+
+/* The indie dialogue box. */
+.cv3-dialog {
+  position: absolute;
+  right: 50%;
+  bottom: max(6vh, 24px);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  width: min(680px, calc(100vw - 32px));
+  padding: 16px 18px 18px;
+  border: 3px solid #f3f1ea;
+  background: #0b0a0e;
+  box-shadow:
+    0 0 0 3px #0b0a0e,
+    6px 6px 0 3px rgb(0 0 0 / 0.5);
+  transform: translateX(50%);
+  cursor: pointer;
+  animation: cv3-hint 280ms steps(4) both;
+}
+.cv3-dialog__face {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: 2px solid #3a3530;
+  background: #050407;
+}
+.cv3-dialog__face span {
+  position: absolute;
+  top: 26px;
+  width: 8px;
+  height: 8px;
+  background: #ff8a52;
+  box-shadow: 0 0 10px #ea4e12;
+  animation: cv3-blink 3.2s steps(1) infinite;
+}
+.cv3-dialog__face span:first-child {
+  left: 17px;
+}
+.cv3-dialog__face span:last-child {
+  right: 17px;
+}
+@keyframes cv3-blink {
+  94% {
+    height: 8px;
+  }
+  96% {
+    height: 1px;
+    top: 30px;
+  }
+}
+.cv3-dialog__who {
+  margin: 0 0 6px;
+  color: var(--cv-accent-lit);
+  font: 600 14px / 1 var(--cv-pixel);
+  letter-spacing: 0.08em;
+}
+.cv3-dialog__text {
+  min-height: 2.6em;
+  margin: 0;
+  color: #f3f1ea;
+  font: 500 clamp(17px, 2vw, 21px) / 1.35 var(--cv-pixel);
+}
+.cv3-dialog__more {
+  display: inline-block;
+  width: 10px;
+  height: 8px;
+  margin-left: 8px;
+  background: var(--cv-accent-lit);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  animation: cv3-more 0.8s steps(2) infinite;
+}
+@keyframes cv3-more {
+  50% {
+    translate: 0 3px;
+  }
+}
+
+/* The littlest one's puppy eyes. */
+.cv3-cut {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  padding: 9vh 16px 6vh;
+  background: rgb(5 4 7 / 0.88);
+  border-top: 9vh solid #000;
+  border-bottom: 9vh solid #000;
+  animation: cv3-fade 300ms ease both;
+}
+.cv3-cut__face {
+  position: relative;
+  align-self: center;
+}
+.cv3-cut__face canvas {
+  display: block;
+  width: min(46vh, 70vw);
+  height: auto;
+  image-rendering: pixelated;
+  animation: cv3-tremble 0.18s steps(2) infinite;
+}
+.cv3-cut[data-state="hesitated"] .cv3-cut__face canvas {
+  animation: cv3-lunge 0.9s cubic-bezier(0.6, 0, 0.9, 0.5) forwards;
+}
+.cv3-cut[data-state="kicked"] .cv3-cut__face canvas {
+  animation: cv3-kicked 0.5s cubic-bezier(0.3, 0, 0.8, 0.6) forwards;
+}
+@keyframes cv3-tremble {
+  50% {
+    translate: 2px 0;
+  }
+}
+@keyframes cv3-lunge {
+  to {
+    scale: 3.2;
+    filter: drop-shadow(0 0 30px #b3152f);
+  }
+}
+@keyframes cv3-kicked {
+  to {
+    translate: 60vw -40vh;
+    rotate: 540deg;
+    scale: 0.2;
+  }
+}
+.cv3-cut__say {
+  position: absolute;
+  top: 4%;
+  right: -10%;
+  margin: 0;
+  padding: 6px 10px;
+  border: 2px solid #121212;
+  background: #fbfaf6;
+  color: #121212;
+  font: 500 18px / 1 var(--cv-pixel);
+}
+.cv3-cut__prompt {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: #f3f1ea;
+  font: 600 clamp(18px, 2.4vw, 24px) / 1.2 var(--cv-pixel);
+}
+.cv3-cut__prompt p {
+  margin: 0;
+}
+.cv3-cut__meter {
+  width: min(320px, 70vw);
+  height: 14px;
+  border: 2px solid #f3f1ea;
+}
+.cv3-cut__meter span {
+  display: block;
+  height: 100%;
+  background: var(--cv-accent);
+  transform-origin: left;
+}
+
+/* Hesitated. */
+.cv3-red {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 24px 16px;
+  background: #b3152f;
+  color: #fbfaf6;
+  text-align: center;
+  animation: cv3-fade 200ms ease both;
+}
+.cv3-red__title {
+  margin: 0;
+  font: 700 clamp(3rem, 10vw, 7rem) / 0.95 var(--cv-pixel);
+  text-shadow: 6px 6px 0 #121212;
+}
+.cv3-red__text {
+  max-width: 30ch;
+  margin: 0;
+  font: 600 clamp(1.25rem, 2.6vw, 1.75rem) / 1.3 var(--cv-pixel);
+  text-wrap: balance;
+}
+.cv3-out__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px 18px;
+}
+.cv-button--quiet {
+  background: #f3f1ea;
+}

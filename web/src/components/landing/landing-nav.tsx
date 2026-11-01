@@ -1,42 +1,71 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { Logo } from "@/components/logo";
 import { ThemeMenu } from "@/components/theme-menu";
-import { Button } from "@/components/ui/button";
 
-const LINKS = [
-  { href: "#call", label: "The call" },
-  { href: "#checks", label: "Checks" },
+export const NAV_LINKS = [
+  { href: "#how", label: "How it works" },
+  { href: "#rule", label: "The rule" },
+  { href: "#labels", label: "Labels" },
   { href: "#faq", label: "FAQ" },
 ];
 
-/** A night-blue pill that floats over the flight and stays as a frame over the paper sections below. */
+/**
+ * A plain bar: the wordmark, four links, the theme switch and the one action. On a phone the links fold into Menu.
+ * It slides away while the page scrolls down (so nothing on the page is cut off under it) and returns on the way up.
+ */
 export function LandingNav() {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = ref.current;
+    if (!header) return;
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - last) < 8) return;
+      const busy = header.contains(document.activeElement) || header.querySelector("details[open]");
+      header.toggleAttribute("data-away", y > last && y > 160 && !busy);
+      last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header data-theme="dark" className="pointer-events-none fixed inset-x-0 top-3 z-30 px-3 sm:top-4 sm:px-6">
-      <nav
-        aria-label="Main"
-        className="pointer-events-auto mx-auto flex h-14 max-w-[920px] items-center justify-between gap-3 rounded-full bg-[#14163a]/75 pr-2 pl-5 text-[#f3f1ea] shadow-[0_0_0_1px_rgb(255_255_255/0.09),0_18px_40px_-24px_rgb(10_6_30/0.8)] backdrop-blur-md"
-      >
-        <Link href="/" aria-label="Three Seconds, home" className="-mx-1 rounded-full px-1 py-1.5">
-          <Logo size={20} />
+    <header ref={ref} className="lp-nav">
+      <nav aria-label="Main" className="lp-nav__inner">
+        <Link href="/" aria-label="Three Seconds, home" className="lp-nav__home">
+          <Logo size={20} className="lp-nav__lockup" />
+          <Logo size={22} variant="mark" className="lp-nav__mark" />
         </Link>
-        <ul className="hidden items-center gap-0.5 md:flex">
-          {LINKS.map((link) => (
+        <ul className="lp-nav__links">
+          {NAV_LINKS.map((link) => (
             <li key={link.href}>
-              <a
-                href={link.href}
-                className="ts-body-sm rounded-full px-3.5 py-2 text-white/75 transition-colors duration-[120ms] hover:bg-white/10 hover:text-white"
-              >
+              <a href={link.href} className="lp-link">
                 {link.label}
               </a>
             </li>
           ))}
         </ul>
-        <div className="flex items-center gap-1.5">
+        <details className="lp-nav__menu">
+          <summary className="lp-link">Menu</summary>
+          <ul>
+            {NAV_LINKS.map((link) => (
+              <li key={link.href}>
+                <a href={link.href} className="lp-link">
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+        <div className="lp-nav__end">
           <ThemeMenu />
-          <Button asChild variant="brand" size="sm" className="rounded-full px-4">
-            <Link href="/check">Check an ad</Link>
-          </Button>
+          <Link href="/check" className="lp-button lp-button--small">
+            Check an ad
+          </Link>
         </div>
       </nav>
     </header>

@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useMotionPaused } from "@/lib/motion";
 
 /**
- * The continuous palette field under the landing page (see .field in globals.css). It also brings each
- * [data-rv] part in once as it scrolls into view; parts stay visible if this never runs.
+ * The landing page's root. Each [data-rv] part rises in once as it scrolls into view, in reading order; parts
+ * are hidden only after this has run (data-ready), so the page reads in full without script.
  */
-export function PageField({ children }: { children: React.ReactNode }) {
-  const paused = useMotionPaused();
+export function LandingRoot({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,9 +20,9 @@ export function PageField({ children }: { children: React.ReactNode }) {
           io.unobserve(entry.target);
         }
       },
-      // The huge top margin counts everything already scrolled past as seen, so a jump down the page never leaves
-      // a section hidden above the viewport.
-      { rootMargin: "100000px 0px -10% 0px" },
+      // The huge top margin counts everything above the viewport as seen, so jumping down the page never leaves
+      // a section hidden behind you.
+      { rootMargin: "100000px 0px -12% 0px" },
     );
     root.querySelectorAll("[data-rv]").forEach((el) => io.observe(el));
     root.dataset.ready = "";
@@ -32,7 +30,7 @@ export function PageField({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div ref={ref} className="field" data-motion={paused ? "paused" : undefined}>
+    <div ref={ref} className="lp">
       {children}
     </div>
   );
