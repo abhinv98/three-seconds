@@ -9,7 +9,9 @@ from pathlib import Path
 
 from models import Clause
 
-CLAUSES_PATH = Path(__file__).resolve().parents[2] / "shared" / "asci-clauses.json"
+_WORKER = Path(__file__).resolve().parents[1]
+# The repo's shared/ beside the worker in development; on Vercel, the copy build.py makes inside it.
+CLAUSES_PATH = (_WORKER / "shared" if (_WORKER / "shared").is_dir() else _WORKER.parent / "shared") / "asci-clauses.json"
 """Verbatim clause text and the guideline's URL, shared with web/ (mock report, landing copy)."""
 _DATA = json.loads(CLAUSES_PATH.read_text(encoding="utf-8"))
 _CLAUSES = {c["code"]: Clause(code=c["code"], text=c["text"], source_url=_DATA["source_url"]) for c in _DATA["clauses"]}

@@ -28,5 +28,6 @@ Thumbs.db
 /*.docx
 /*.zip
 
-# worker: ffmpeg and ffprobe that build.py downloads on Vercel
+# worker: what build.py adds on Vercel (ffmpeg and ffprobe, and a copy of shared/)
 /worker/bin/
+/worker/shared/
