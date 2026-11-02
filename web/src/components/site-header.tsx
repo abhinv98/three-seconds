@@ -10,6 +10,9 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
           <Logo size={22} />
         </Link>
         <div className="flex items-center gap-2">
+          <Link href="/dashboard" className="rounded-sm px-2 py-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
+            Sign in
+          </Link>
           {children}
           <ThemeMenu />
         </div>

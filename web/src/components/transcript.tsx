@@ -7,6 +7,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   "hi-Deva": "Hindi",
   hi: "Hindi",
   en: "English",
+  und: "Other language",
 };
 
 interface TranscriptProps {

@@ -1,8 +1,9 @@
-"""Run the visual pipeline on local videos and print per-frame readings, spans, checks and cost.
+"""Run the pipeline on local videos and print per-frame readings, spans, the transcript, checks and cost.
 
     uv run --env-file .env python run_reels.py ../testreels/*.mp4
 
-Stops after the first reel that costs more than --max-cost dollars. --reasoning overrides the vision
+Stops after the first reel that costs more than --max-cost dollars, Muse Spark Open and Meta together, and
+prints the Meta credit spent at the end. --reasoning overrides the vision
 stage's reasoning effort for this run only (eval), e.g. --reasoning medium.
 """
 
@@ -28,6 +29,7 @@ def main() -> int:
     args = parser.parse_args()
     vision.REASONING_EFFORT = args.reasoning
 
+    meta_spent = 0.0
     for video in args.videos:
         start = time.monotonic()
         analysis = analyze_video(video, video.name, str(video))
@@ -54,6 +56,10 @@ def main() -> int:
         print(
             f"first seen {track.first_seen_s}, total {track.total_on_screen_s}s, longest {track.longest_continuous_s}s"
         )
+        for line in report.transcript:
+            print(f"  {timecode(line.t_start)}-{timecode(line.t_end)}  [{line.lang}]  {line.text}")
+        if not report.audio_checked:
+            print("  audio not checked")
         for check in report.checks:
             clause = check.clause.code if check.clause else "no clause"
             print(f"  {check.verdict:<6} {check.id:<17} [{clause}] {check.detail}")
@@ -72,13 +78,17 @@ def main() -> int:
                 f"  edge refinement: {len(analysis.edge_readings)} extra frames at 10 fps,"
                 f" {len(analysis.edge_replies)} requests, {dollars(cost(analysis.edge_replies))}"
             )
+        meta = analysis.audio.cost_usd
+        meta_spent += meta
         print(
-            f"  cost {dollars(total)}  ({len(replies)} requests, {tokens_in:,} in / {tokens_out:,} out tokens,"
-            f" {seconds:.1f}s)"
+            f"  cost {dollars(total)} + Meta ${meta:.4f}  ({len(replies)} requests, {tokens_in:,} in /"
+            f" {tokens_out:,} out tokens, {seconds:.1f}s)"
         )
-        if total is not None and total > args.max_cost:
-            print(f"\nSTOP: {video.name} cost ${total:.2f}, over the ${args.max_cost:.2f} limit.")
+        if total is not None and total + meta > args.max_cost:
+            print(f"\nSTOP: {video.name} cost ${total + meta:.2f}, over the ${args.max_cost:.2f} limit.")
+            print(f"Meta credit spent: ${meta_spent:.4f}")
             return 2
+    print(f"\nMeta credit spent: ${meta_spent:.4f}")
     return 0
 
 

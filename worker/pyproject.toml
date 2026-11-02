@@ -1,7 +1,7 @@
 [project]
 name = "three-seconds-worker"
 version = "0.1.0"
-description = "Analysis worker for Three Seconds. Visual pipeline (frames, Muse Spark Open, label track, checks); audio not yet."
+description = "Analysis worker for Three Seconds: frames read by Muse Spark Open, audio by Muse Voice Transcribe, ASCI checks."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -22,3 +22,7 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+# Vercel (FastAPI): runs after the dependencies are installed, before the function is bundled.
+[tool.vercel.scripts]
+build = "python build.py"

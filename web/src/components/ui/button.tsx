@@ -24,6 +24,9 @@ const buttonVariants = cva(
         lg: "h-[52px] rounded-[12px] px-7 text-[17px]",
         icon: "size-11 rounded-[10px]",
         "icon-sm": "size-9 rounded-[10px]",
+        // The dashboard's flatter, shorter set: 6px corners, 36 and 32 tall.
+        compact: "h-9 rounded-[6px] px-3.5 text-sm",
+        "compact-sm": "h-8 rounded-[6px] px-2.5 text-[13px]",
       },
     },
     defaultVariants: {

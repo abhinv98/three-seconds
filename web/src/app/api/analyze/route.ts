@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { workerHeaders } from "@/lib/check-reel";
 import { buildMockReport } from "@/lib/mock";
 
 // The worker reads frames with Muse Spark Open (8-30s per request) and, when the label's hold is within
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     try {
       const response = await fetch(`${workerUrl.replace(/\/+$/, "")}/analyze`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: workerHeaders("application/json"),
         body: JSON.stringify({
           blob_url: body.blobUrl,
           filename: body.filename,

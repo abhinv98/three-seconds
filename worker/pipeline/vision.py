@@ -26,6 +26,7 @@ For every frame, decide whether advertising-disclosure text is visible on screen
 - a label: a tag, sticker or text overlay such as Instagram's "Paid partnership" line under the username, "Ad", "#ad", "Sponsored", "Collab", "Collaboration", "Partnership", "Affiliate", "Free gift", "Includes paid promotion", or Hindi such as "विज्ञापन", "प्रायोजित", "सशुल्क साझेदारी";
 - a caption: superimposed subtitles of what is said, when their words disclose the ad, such as "Yeh video sponsored hai".
 A brand name, logo, product or price on its own is not a disclosure.
+Count only disclosure text that belongs to this video: overlays, stickers or captions the creator added, or Instagram's own "Paid partnership" line. Words inside a screenshot, web page, app or shop listing that the video shows (such as a "Sponsored" tag on a product in a store page, or "Free gift with purchase") are not a disclosure.
 
 Reply with a JSON array only, one object per frame, in the same order:
 {{"t": <timestamp in seconds>, "label_present": true or false, "kind": "label" | "caption" (say "label" if both are visible), "label_text": "<the exact disclosure text, or empty>", "language": "en" | "hi-Deva" | "hi-Latn" | "other" | "", "position": "top-left" | "top" | "top-right" | "left" | "center" | "right" | "bottom-left" | "bottom" | "bottom-right" | "", "legible": <true if the text is easy to read at phone size, false otherwise or when there is none>}}"""

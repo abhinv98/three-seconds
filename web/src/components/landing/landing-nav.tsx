@@ -63,6 +63,9 @@ export function LandingNav() {
         </details>
         <div className="lp-nav__end">
           <ThemeMenu />
+          <Link href="/dashboard" className="lp-link">
+            Sign in
+          </Link>
           <Link href="/check" className="lp-button lp-button--small">
             Check an ad
           </Link>

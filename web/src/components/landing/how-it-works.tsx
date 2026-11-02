@@ -313,8 +313,8 @@ export function HowItWorks() {
             ))}
           </ol>
           <p className="lp-story__next">
-            <strong>Coming next:</strong> it listens too. A disclosure said out loud in Hindi, Hinglish or English, with
-            the time it was said.
+            <strong>It listens too.</strong> A disclosure said out loud in Hindi, Hinglish or English is marked with
+            about when it was said.
           </p>
         </div>
         {pinned && (

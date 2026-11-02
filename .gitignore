@@ -27,3 +27,6 @@ Thumbs.db
 # design source files dropped in the repo root (not committed)
 /*.docx
 /*.zip
+
+# worker: ffmpeg and ffprobe that build.py downloads on Vercel
+/worker/bin/

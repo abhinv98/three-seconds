@@ -29,7 +29,7 @@ type Phase =
   | { kind: "analyzing"; file: File; meta: VideoMeta; blobUrl: string }
   | { kind: "failed"; file: File; meta: VideoMeta; step: "upload" | "analyze"; message: string; blobUrl?: string };
 
-function checkFile(file: File): string | null {
+export function checkFile(file: File): string | null {
   if (!contentTypeFor(file)) return `“${file.name}” isn't an MP4 or MOV video.`;
   if (file.size === 0) return "This file is empty.";
   if (file.size > MAX_BYTES) return `This file is ${formatBytes(file.size)}. The limit is 100 MB.`;
@@ -70,7 +70,8 @@ function readVideoMeta(file: File): Promise<VideoMeta> {
   });
 }
 
-function blobPathname(filename: string): string {
+/** Where a video goes in the Blob store: videos/<slug>.<ext>, plus the random suffix /api/upload adds. */
+export function blobPathname(filename: string): string {
   const dot = filename.lastIndexOf(".");
   const stem = (dot > 0 ? filename.slice(0, dot) : filename)
     .toLowerCase()
@@ -94,17 +95,26 @@ export function UploadFlow({ storage, analysis }: UploadFlowProps) {
   async function analyze(file: File, meta: VideoMeta, blobUrl: string) {
     setPhase({ kind: "analyzing", file, meta, blobUrl });
     try {
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          blobUrl,
-          filename: file.name,
-          durationS: meta.duration,
-          width: meta.width,
-          height: meta.height,
-        }),
-      });
+      // Dev with a worker but no Blob token: the video has no URL the worker can fetch, so its bytes go through
+      // the dev server instead; blobUrl (this tab's object URL) only rides along for playback in the report.
+      const response =
+        storage === "local" && analysis === "worker"
+          ? await fetch(`/api/analyze-local?${new URLSearchParams({ filename: file.name, sourceUrl: blobUrl })}`, {
+              method: "POST",
+              headers: { "content-type": "application/octet-stream" },
+              body: file,
+            })
+          : await fetch("/api/analyze", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                blobUrl,
+                filename: file.name,
+                durationS: meta.duration,
+                width: meta.width,
+                height: meta.height,
+              }),
+            });
       const body = (await response.json().catch(() => null)) as (Report & { error?: string }) | null;
       if (!response.ok || !body || typeof body.job_id !== "string") {
         throw new Error(body?.error ?? `The check failed (HTTP ${response.status}).`);

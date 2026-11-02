@@ -4,6 +4,9 @@ Unlisted ("Collab") and unknown frames never count as disclosed or as absent: a 
 change is REVIEW. When the hold is within one 2 fps interval of the requirement, the label's edges are
 re-read at 10 fps first (report.analyze_video); if any of those frames can't be read, label_duration
 is REVIEW "Within measurement margin".
+
+The audio checks use the transcript (pipeline/transcribe.py): label_language (1.3b) compares the label's
+language with the speech's, and spoken_disclosure is PASS when a line says a disclosure, INFO otherwise.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from models import Check, CheckVerdict, Evidence, Fix, Track, Verdict
 from pipeline import asci
 from pipeline.frames import EDGE_FPS
 from pipeline.track import DISCLOSED, UNCERTAIN, longest, spans_where, state
+from pipeline.transcribe import Audio
 from pipeline.vision import FrameReading
 
 
@@ -35,25 +39,111 @@ def evaluate_rules(
     fps: float,
     duration_s: float,
     edge_readings: Sequence[FrameReading] = (),
+    audio: Audio | None = None,
 ) -> list[Check]:
-    """label_present, label_duration and spoken_disclosure, in that order.
+    """label_present, label_duration, label_language and spoken_disclosure, in that order.
 
     edge_readings are the 10 fps re-reads around the label's edges, already merged into readings; empty
-    when the hold wasn't close enough to the requirement to need them.
+    when the hold wasn't close enough to the requirement to need them. audio is None when it wasn't checked.
     """
+    audio = audio or Audio(checked=False)
     return [
         _label_present(readings, track, fps, duration_s),
         _label_duration(readings, track, fps, duration_s, edge_readings),
-        Check(
+        _label_language(readings, fps, duration_s, audio),
+        _spoken_disclosure(audio),
+    ]
+
+
+LANGUAGE_NAMES = {"en": "English", "hi-Deva": "Hindi", "hi-Latn": "Hinglish", "und": "another language"}
+
+
+def _spoken_disclosure(audio: Audio) -> Check:
+    # INFO, never FAIL: ASCI asks for a spoken disclosure only in live streams (1.2f) and audio (1.2g).
+    def check(verdict: CheckVerdict, detail: str, evidence: list[Evidence] | None = None) -> Check:
+        return Check(
             id="spoken_disclosure",
             title="Spoken disclosure",
-            # INFO, never FAIL: ASCI asks for a spoken disclosure only in live streams (1.2f) and audio (1.2g).
-            verdict="INFO",
-            detail="Audio not checked yet.",
+            verdict=verdict,
+            detail=detail,
             clause=None,
-            evidence=[],
-        ),
+            evidence=evidence or [],
+        )
+
+    if not audio.checked:
+        return check("INFO", "Audio couldn't be checked this time." if audio.failed else "Audio not checked yet.")
+    if not audio.has_track:
+        return check("INFO", "This video has no audio.")
+    if not audio.transcript:
+        return check("INFO", "No speech heard.")
+    line = next((s for s in audio.transcript if asci.said_out_loud(s.text)), None)
+    if line is None:
+        return check("INFO", "Not said out loud. ASCI asks for that only in live streams and audio ads.")
+    note = f'"{line.text}" {LANGUAGE_NAMES.get(line.lang, "")}'.rstrip()
+    return check(
+        "PASS",
+        f'Said at about {timecode(line.t_start)}: "{line.text}"',
+        [Evidence(t_start=line.t_start, t_end=line.t_end, kind="audio", note=note)],
+    )
+
+
+def _label_language(readings: list[FrameReading], fps: float, duration_s: float, audio: Audio) -> Check:
+    """1.3b: English, or the ad's own language. The ad's language is the speech's, by length."""
+
+    def check(verdict: CheckVerdict, detail: str, evidence: list[Evidence], fix: str | None = None) -> Check:
+        return Check(
+            id="label_language",
+            title="Label in English or the ad's language",
+            verdict=verdict,
+            detail=detail,
+            clause=asci.LANGUAGE,
+            evidence=evidence,
+            fix=Fix(steps=[fix]) if fix else None,
+        )
+
+    shown = [r for r in readings if state(r) in DISCLOSED]
+    if not shown:
+        return check("INFO", "No label on screen, so there's no language to check.", [])
+    texts = [r.label_text for r in shown]
+    text = max(texts, key=texts.count)
+    english = asci.label_language(text) == "en"
+    span = spans_where(readings, DISCLOSED, fps, duration_s)[0]
+    evidence = [
+        Evidence(
+            t_start=span.t_start,
+            t_end=span.t_end,
+            kind=shown[0].kind if shown[0].kind in ("label", "caption") else "label",
+            note=f'Label text "{text}", {"English" if english else "Hindi"}',
+        )
     ]
+    lengths: dict[str, int] = {}
+    for line in audio.transcript:
+        lengths[line.lang] = lengths.get(line.lang, 0) + len(line.text)
+    speech = max(lengths, key=lengths.__getitem__) if lengths else None
+    if speech:
+        name = LANGUAGE_NAMES.get(speech, speech)
+        evidence.append(
+            Evidence(
+                t_start=audio.transcript[0].t_start,
+                t_end=audio.transcript[-1].t_end,
+                kind="audio",
+                note=f"Speech, mostly {name}",
+            )
+        )
+    if english:
+        said = f" Speech is {LANGUAGE_NAMES.get(speech, speech)}." if speech else ""
+        return check("PASS", f"Disclosure uses English, which ASCI accepts for an ad in any language.{said}", evidence)
+    if speech is None:
+        return check("INFO", "Label is in Hindi. ASCI accepts that if the ad is in Hindi too.", evidence)
+    if speech.startswith("hi"):
+        return check("PASS", f"Label is in Hindi, like the speech ({LANGUAGE_NAMES[speech]}).", evidence)
+    return check(
+        "REVIEW",
+        f"Label is in Hindi but the speech is {LANGUAGE_NAMES.get(speech, speech)}."
+        " ASCI wants English or the ad's own language.",
+        evidence,
+        'Add the label in English as well, for example "Ad" or "Paid partnership".',
+    )
 
 
 def _evidence(readings: list[FrameReading], fps: float, duration_s: float, *states: str) -> list[Evidence]:

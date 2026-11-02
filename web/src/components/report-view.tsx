@@ -13,16 +13,18 @@ import { bySeverity, type Report } from "@/lib/report";
 import { useStoredReport } from "@/lib/report-store";
 import { spokenMarkers, timelineSummary } from "@/lib/summary";
 
-export function ReportView({ id, report: given }: { id: string; report?: Report }) {
+/** embedded: inside a page that already has its <main> (the dashboard), so the report is a plain block. */
+export function ReportView({ id, report: given, embedded = false }: { id: string; report?: Report; embedded?: boolean }) {
   const stored = useStoredReport(id);
   const report = given ?? stored;
   if (report === undefined) return <ReportSkeleton />;
   if (report === null) return <ReportMissing />;
   if (report.status === "error") return <ReportFailed />;
-  return <ReportBody report={report} />;
+  return <ReportBody report={report} embedded={embedded} />;
 }
 
-function ReportBody({ report }: { report: Report }) {
+function ReportBody({ report, embedded }: { report: Report; embedded: boolean }) {
+  const Root = embedded ? "div" : "main";
   const videoRef = useRef<HTMLVideoElement>(null);
   const [time, setTime] = useState(0);
   const [videoFailed, setVideoFailed] = useState(false);
@@ -71,7 +73,7 @@ function ReportBody({ report }: { report: Report }) {
   const checks = bySeverity(report.checks);
 
   return (
-    <main id="main" className="mx-auto max-w-[1120px] px-4 pt-6 pb-16 sm:px-6 sm:pt-8">
+    <Root id={embedded ? undefined : "main"} className={embedded ? undefined : "mx-auto max-w-[1120px] px-4 pt-6 pb-16 sm:px-6 sm:pt-8"}>
       <VerdictBanner report={report} onSeek={seek} />
 
       <div className="mt-6 grid gap-8 min-[900px]:mt-8 min-[900px]:grid-cols-[340px_minmax(0,1fr)] min-[900px]:gap-10">
@@ -82,7 +84,9 @@ function ReportBody({ report }: { report: Report }) {
                 <Icon name="film" size={24} className="mx-auto" />
                 <p className="ts-body mt-3">The video can&apos;t be played in this tab.</p>
                 <p className="ts-caption mt-1 opacity-80">
-                  Local previews don&apos;t survive a reload. The report below is still complete.
+                  {embedded
+                    ? "This browser can't play this video format. The report below is still complete."
+                    : "Local previews don't survive a reload. The report below is still complete."}
                 </p>
               </div>
             ) : (
@@ -141,7 +145,7 @@ function ReportBody({ report }: { report: Report }) {
       </div>
 
       <ReportFooter report={report} />
-    </main>
+    </Root>
   );
 }
 

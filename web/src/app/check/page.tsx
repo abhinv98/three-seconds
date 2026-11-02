@@ -31,7 +31,9 @@ export default function CheckPage() {
             </div>
             {storage === "local" && (
               <p className="ts-caption mt-3 text-muted-foreground">
-                Local preview: no Blob token, so videos stay in this browser tab.
+                {analysis === "worker"
+                  ? "Local preview: no Blob token, so this tab sends the video straight to your local worker."
+                  : "Local preview: no Blob token, so videos stay in this browser tab."}
               </p>
             )}
           </section>

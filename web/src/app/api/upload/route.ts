@@ -15,7 +15,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      // No accounts yet, so uploads are limited by type, size and an unguessable pathname.
+      // The public /check page uploads without an account, so uploads are limited by type, size and an unguessable
+      // pathname rather than by who sends them.
       onBeforeGenerateToken: async (pathname) => {
         if (!pathname.startsWith("videos/")) throw new Error("Unexpected upload path.");
         return {

@@ -1,8 +1,9 @@
-"""Assembles the report from the pipeline stages: frames -> vision -> track -> rules.
+"""Assembles the report from the pipeline stages: frames -> vision -> track -> rules, with the audio
+transcribed (pipeline/transcribe.py) while the frames are read.
 
 If the label's hold is within one 2 fps interval of what ASCI requires, its edges are re-sampled at
-10 fps and read again before the checks run. The audio stage isn't wired yet: audio_checked is false,
-the transcript is empty and spoken_disclosure says so.
+10 fps and read again before the checks run. Without META_API_KEY, or when transcription fails,
+audio_checked is false, the transcript is empty and spoken_disclosure says so.
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from __future__ import annotations
 import logging
 import tempfile
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +22,7 @@ from pipeline.asci import required_hold
 from pipeline.frames import EDGE_FPS, SAMPLE_FPS, download, probe, sample_frames
 from pipeline.rules import evaluate_rules, overall_verdict
 from pipeline.track import edge_windows, label_track, merge_readings
+from pipeline.transcribe import Audio, listen
 from pipeline.vision import FrameReading, read_frames
 
 log = logging.getLogger(__name__)
@@ -34,6 +37,7 @@ class Analysis:
     """The 2 fps pass."""
     edge_readings: list[FrameReading] = field(default_factory=list)
     edge_replies: list[llm.Reply] = field(default_factory=list)
+    audio: Audio = field(default_factory=lambda: Audio(checked=False))
 
 
 def cost(replies: list[llm.Reply]) -> float | None:
@@ -47,7 +51,8 @@ def analyze_video(video: Path, filename: str, blob_url: str) -> Analysis:
     duration, width, height = probe(video)
     edge_readings: list[FrameReading] = []
     edge_replies: list[llm.Reply] = []
-    with tempfile.TemporaryDirectory() as tmp:
+    with ThreadPoolExecutor(1) as pool, tempfile.TemporaryDirectory() as tmp:
+        heard = pool.submit(listen, video)
         coarse_dir, edge_dir = Path(tmp, "2fps"), Path(tmp, "edges")
         coarse_dir.mkdir()
         edge_dir.mkdir()
@@ -65,15 +70,18 @@ def analyze_video(video: Path, filename: str, blob_url: str) -> Analysis:
                 len(edge_replies),
                 _dollars(cost(edge_replies)),
             )
+        audio = heard.result()
     track = label_track(readings, SAMPLE_FPS, duration)
-    checks = evaluate_rules(readings, track, SAMPLE_FPS, duration, edge_readings)
+    checks = evaluate_rules(readings, track, SAMPLE_FPS, duration, edge_readings, audio)
     log.info(
-        "%s: %.1fs, %d frames, %d requests, $%s",
+        "%s: %.1fs, %d frames, %d requests, $%s; audio %s",
         filename,
         duration,
         len(readings),
         len(replies) + len(edge_replies),
         _dollars(cost(replies + edge_replies)),
+        f"${audio.cost_usd:.4f}, {len(audio.transcript)} lines" if audio.model
+        else ("none" if not audio.has_track else "not checked"),
     )
     report = Report.model_validate(
         {
@@ -91,13 +99,13 @@ def analyze_video(video: Path, filename: str, blob_url: str) -> Analysis:
             "verdict": overall_verdict(checks),
             "checks": [c.model_dump() for c in checks],
             "tracks": [track.model_dump()],
-            "transcript": [],
-            "audio_checked": False,
-            "models_used": [llm.provider().model],
+            "transcript": [s.model_dump() for s in audio.transcript],
+            "audio_checked": audio.checked,
+            "models_used": [llm.provider().model] + ([audio.model] if audio.model else []),
             "generated_at": datetime.now(UTC),
         }
     )
-    return Analysis(report, readings, replies, edge_readings, edge_replies)
+    return Analysis(report, readings, replies, edge_readings, edge_replies, audio)
 
 
 def _dollars(amount: float | None) -> str:

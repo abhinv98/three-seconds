@@ -17,6 +17,7 @@ _CLAUSES = {c["code"]: Clause(code=c["code"], text=c["text"], source_url=_DATA["
 HOLD_SHORT = _CLAUSES["ASCI-IG 1.2e.I"]
 HOLD_LONG = _CLAUSES["ASCI-IG 1.2e.II"]
 LABELS = _CLAUSES["ASCI-IG 1.3a"]
+LANGUAGE = _CLAUSES["ASCI-IG 1.3b"]
 
 # 1.3a labels as words, so "Collab" and "Advertising" don't match but "#ad" and "Paid partnership with X" do.
 # "partnership" covers Paid Partnership; "paid promotion" covers Includes Paid Promotion.
@@ -36,9 +37,50 @@ _DEVANAGARI = [
 ]
 
 
+def label_language(text: str) -> str | None:
+    """en if the text has a 1.3a label in English, hi if it has only a Hindi equivalent, else None."""
+    if _LATIN_RE.search(text.lower()):
+        return "en"
+    if any(w in _devanagari(text) for w in _DEVANAGARI):
+        return "hi"
+    return None
+
+
 def is_permitted(text: str) -> bool:
     """True if the text contains a 1.3a label or its Hindi equivalent."""
-    return bool(_LATIN_RE.search(text.lower())) or any(w in _devanagari(text) for w in _DEVANAGARI)
+    return label_language(text) is not None
+
+
+# Said out loud: the 1.3a words a creator says, Hinglish "sponsor kiya", Hindi words, and the Devanagari spellings
+# Muse Voice Transcribe uses for the English ones (it writes spoken Hinglish in Devanagari: "पेड पार्टनरशिप").
+# A bare "ad" counts only as "this is an ad" or "ad hai", so a Reel about making ads doesn't pass on that alone,
+# and "add" ("ऐड करो") never does. A negation next to the word ("not sponsored", "sponsored nahi hai") cancels it.
+_SPOKEN_LATIN = re.compile(
+    r"(?<![a-z])(paid partnership|partnership|collaboration|advertisement|sponsor(?:ed|ing)?"
+    r"|(?:this|it|that|video|reel|post)(?:'s| is| was) (?:an? )?(?:paid )?ad|ad hai)(?![a-z])"
+)
+_SPOKEN_DEVANAGARI = re.compile(
+    "|".join(
+        _devanagari(w)
+        for w in ["प्रायोजित", "विज्ञापन", "साझेदारी", "भागीदारी", "पार्टनरशिप", "स्पॉन्सर", "स्पोंसर", "स्पांसर"]
+        + ["स्पोन्सर", "कोलैबोरेशन", "कोलाबोरेशन", "एडवरटाइजमेंट", "एडवर्टाइजमेंट"]
+    )
+    + "|(?<![ऀ-ॿ])(?:एड|ऐड) है"
+)
+_NEGATED_BEFORE = {"not", "no", "never", "non", "isn't", "wasn't"}
+_NEGATED_AFTER = {"nahi", "nahin", "नहीं", "नही", "ना"}
+
+
+def said_out_loud(text: str) -> bool:
+    """True if a line of speech makes a 1.3a disclosure that isn't negated."""
+    text = _devanagari(text.lower().replace("’", "'"))
+    for pattern in (_SPOKEN_LATIN, _SPOKEN_DEVANAGARI):
+        for m in pattern.finditer(text):
+            before = {w.strip(".,!?।\"'") for w in text[: m.start()].split()[-2:]}
+            after = {w.strip(".,!?।\"'") for w in text[m.end() :].split()[:2]}
+            if not (before & _NEGATED_BEFORE or after & _NEGATED_AFTER):
+                return True
+    return False
 
 
 def required_hold(duration_s: float) -> tuple[float, Clause]:

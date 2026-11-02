@@ -40,3 +40,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local database and uploaded Reels (lib/db.ts)
+/.data/
+
+# Local previews of third-party Reels and their sample analysis (never committed)
+/public/preview/
+/preview-data/

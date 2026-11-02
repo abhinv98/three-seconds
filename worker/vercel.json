@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "main.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{tests/**,run_reels.py,build.py,modal_app.py,.venv/**,**/__pycache__/**}"
+    }
+  }
+}

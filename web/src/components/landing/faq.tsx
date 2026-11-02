@@ -15,7 +15,7 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "Does it check what’s said out loud?",
-    a: "Not yet. Spoken disclosure in Hindi, Hinglish and English is being built now. Until it ships, every report says “Audio not checked yet.”",
+    a: "Yes. It transcribes the audio in Hindi, Hinglish or English and marks a disclosure said out loud, such as “sponsored” or “paid partnership”, with about when it was said. ASCI asks for a spoken disclosure only in live streams and audio ads, so a Reel without one doesn’t fail for it.",
   },
   {
     q: "Which on-screen languages does it read?",
@@ -23,7 +23,7 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "Where does my video go?",
-    a: "Your browser uploads it to Vercel Blob storage under an unguessable link. The checker downloads it from there and sends the frames it samples to the model that reads them. Nothing is posted anywhere.",
+    a: "Your browser uploads it to Vercel Blob storage under an unguessable link. The checker downloads it from there and sends the frames it samples to the model that reads them, and the audio to the model that transcribes it. Nothing is posted anywhere.",
   },
   {
     q: "Are the cited clauses final?",

@@ -75,8 +75,9 @@ def test_analyze_runs_the_pipeline_on_the_uploaded_file(monkeypatch):
         {"t_start": 0.5, "t_end": 4.0, "kind": "label", "note": '"Paid partnership" label, top-left'},
         {"t_start": 5.0, "t_end": 5.5, "kind": "frame", "note": "Frames could not be read"},
     ]
+    assert checks["label_language"]["verdict"] == "PASS"  # an English label suits an ad in any language
     assert checks["spoken_disclosure"]["verdict"] == "INFO"
-    assert checks["spoken_disclosure"]["detail"] == "Audio not checked yet."
+    assert checks["spoken_disclosure"]["detail"] == "Audio not checked yet."  # no META_API_KEY in tests
     assert report["audio_checked"] is False
     assert report["verdict"] == "FAIL"
 
@@ -90,3 +91,30 @@ def test_analyze_only_fetches_vercel_blob_urls():
 def test_analyze_rejects_a_missing_filename():
     response = client.post("/analyze", json={"blob_url": "https://example.invalid/v.mp4"})
     assert response.status_code == 422
+
+
+UPLOAD_PARAMS = {"filename": "reel.mp4", "source_url": "blob:http://localhost:3000/4b1e"}
+
+
+def test_analyze_upload_is_off_without_the_dev_flag(monkeypatch):
+    monkeypatch.delenv("ALLOW_UPLOADS", raising=False)
+    assert client.post("/analyze-upload", params=UPLOAD_PARAMS, content=b"video").status_code == 404
+
+
+def test_analyze_upload_runs_the_pipeline_on_the_posted_bytes(monkeypatch):
+    monkeypatch.setenv("ALLOW_UPLOADS", "1")
+    monkeypatch.setattr(llm, "chat", fake_chat)
+    assert client.post("/analyze-upload", params=UPLOAD_PARAMS, content=b"").status_code == 400
+    response = client.post("/analyze-upload", params=UPLOAD_PARAMS, content=SAMPLE_REEL.read_bytes())
+    assert response.status_code == 200
+    report = response.json()
+    assert errors_for(report) == []
+    assert report["video"]["blob_url"] == UPLOAD_PARAMS["source_url"]   # echoed for playback, never fetched
+
+
+def test_analyze_upload_caps_the_size(monkeypatch):
+    import main
+
+    monkeypatch.setenv("ALLOW_UPLOADS", "1")
+    monkeypatch.setattr(main, "MAX_BYTES", 10)
+    assert client.post("/analyze-upload", params=UPLOAD_PARAMS, content=b"x" * 11).status_code == 413
