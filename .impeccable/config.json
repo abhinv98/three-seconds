@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "brag-output/family/family.html"
+        ],
+        "createdAt": "2026-11-03T15:51:41.581Z",
+        "reason": "Agent: poster reuses the Three Seconds brand paper tokens (web/src/app/tokens.css paper-100 #f3f1ea) so it matches the site"
+      }
+    ]
+  }
+}

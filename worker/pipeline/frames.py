@@ -87,7 +87,12 @@ def probe(video: Path) -> tuple[float, int, int]:
 
 
 def sample_frames(
-    video: Path, out_dir: Path, fps: float = SAMPLE_FPS, windows: list[tuple[float, float]] | None = None
+    video: Path,
+    out_dir: Path,
+    fps: float = SAMPLE_FPS,
+    windows: list[tuple[float, float]] | None = None,
+    max_width: int = MAX_WIDTH,
+    quality: int = 3,
 ) -> list[Frame]:
     """Sample frames from the video at `fps`, at most MAX_WIDTH wide.
 
@@ -96,6 +101,8 @@ def sample_frames(
         out_dir: Empty directory for the JPEGs.
         fps: Sampling rate; the report contract records it as video.fps_sampled.
         windows: (start, end) seconds. If given, only the slots inside them (ends included) are kept.
+        max_width: Frames wider than this are scaled down to it.
+        quality: ffmpeg's JPEG -q:v, 2 (best) to 31.
 
     Returns:
         One Frame per sample, in time order.
@@ -108,8 +115,8 @@ def sample_frames(
         )
         vf += ",select='" + "+".join(f"eq(n,{k})" for k in slots) + "'"
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"{vf},scale='min({MAX_WIDTH},iw)':-2"]
-        + ["-fps_mode", "passthrough", "-q:v", "3", str(out_dir / "%05d.jpg")],
+        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"{vf},scale='min({max_width},iw)':-2"]
+        + ["-fps_mode", "passthrough", "-q:v", str(quality), str(out_dir / "%05d.jpg")],
         check=False,
         capture_output=True,
         text=True,

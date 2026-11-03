@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PageHeader, Panel } from "@/components/account/bits";
 import { AnnotatedPlayer, type PlayerMode } from "@/components/details/annotated-player";
+import { KitSummary } from "@/components/details/kit-summary";
 import { TimecodeChip } from "@/components/timecode-chip";
 import { Timeline, type TimelineLane } from "@/components/timeline";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,20 @@ const KIND_STYLE: Record<MomentKind, string> = {
   Showcase: "bg-muted text-muted-foreground",
 };
 
-export function FinerDetailsScreen({ details, brandFont, preview }: { details: FinerDetails; brandFont: string; preview?: boolean }) {
+export function FinerDetailsScreen({
+  details,
+  brandFont,
+  preview,
+  back = { href: "/dashboard/reels", label: "Reels" },
+  action,
+}: {
+  details: FinerDetails;
+  brandFont: string;
+  preview?: boolean;
+  back?: { href: string; label: string };
+  /** Beside the copy button: reading the Reel again, for one. */
+  action?: React.ReactNode;
+}) {
   const { reel, moments, brand } = details;
   const videoRef = useRef<HTMLVideoElement>(null);
   const [time, setTime] = useState(0);
@@ -76,13 +90,22 @@ export function FinerDetailsScreen({ details, brandFont, preview }: { details: F
     <div className="grid gap-6">
       <div className="grid gap-3">
         <Link
-          href="/dashboard/reels"
-          className="inline-flex w-fit items-center gap-1.5 rounded-sm text-sm font-semibold text-muted-foreground hover:text-foreground"
+          href={back.href}
+          className="inline-flex w-fit max-w-full items-center gap-1.5 truncate rounded-sm text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={14} aria-hidden="true" />
-          Reels
+          {back.label}
         </Link>
-        <PageHeader title="Finer details" description={details.finding} action={<CopyFixes text={fixList(details, formatTimecode)} />} />
+        <PageHeader
+          title="Finer details"
+          description={details.finding}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              {action}
+              <CopyFixes text={fixList(details, formatTimecode)} />
+            </div>
+          }
+        />
       </div>
 
       {preview ? (
@@ -131,27 +154,7 @@ export function FinerDetailsScreen({ details, brandFont, preview }: { details: F
 
         <aside className="grid min-w-0 content-start gap-4 md:col-span-2 md:grid-cols-2 xl:col-span-1 xl:grid-cols-1">
           <Panel title="Brand kit" action={<SiteLink site={brand.site} />}>
-            <div className="flex items-center gap-3 px-5 pt-4">
-              {/* eslint-disable-next-line @next/next/no-img-element -- a small local asset; next/image adds nothing here */}
-              <img src={brand.logo} alt="" width={44} height={44} className="size-11 rounded-[8px] bg-muted [image-rendering:pixelated]" />
-              <div className="min-w-0">
-                <p className="text-[15px] font-bold">{brand.name}</p>
-                <p className="text-sm text-muted-foreground">{brand.tagline}</p>
-              </div>
-            </div>
-            <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-2.5 px-5 py-4 text-sm">
-              <dt className="pt-0.5 text-[12px] text-muted-foreground">Colours</dt>
-              <dd className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {brand.colors.map((c) => (
-                  <span key={c.hex} className="flex items-center gap-2">
-                    <span className="size-4 shrink-0 rounded-[4px] border border-border" style={{ background: c.hex }} />
-                    <span className="font-mono text-[12px]">{c.hex}</span>
-                  </span>
-                ))}
-              </dd>
-              <dt className="text-[12px] text-muted-foreground">Type</dt>
-              <dd>{brand.fonts.join(" · ")}</dd>
-            </dl>
+            <KitSummary brand={brand} />
             <p className="border-t border-border px-5 py-3 text-[12px] text-muted-foreground">
               Read from {brand.site} on {readDate(brand.read_at)}. The fixes on the Reel use these colours.
             </p>

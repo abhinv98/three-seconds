@@ -98,3 +98,28 @@ class AnalyzeRequest(Strict):
     duration_s: float | None = Field(default=None, gt=0)
     width: int | None = Field(default=None, gt=0)
     height: int | None = Field(default=None, gt=0)
+
+
+class FramesRequest(Strict):
+    """The finer-details pass: stills for the model to read."""
+
+    blob_url: str = Field(min_length=1, max_length=2048)
+    fps: float = Field(default=1.0, gt=0, le=2)
+    width: int = Field(default=360, ge=160, le=720)
+
+
+class TrackObject(Strict):
+    id: str = Field(min_length=1, max_length=40)
+    t: float = Field(ge=0)
+    """When the box below is right."""
+    box: list[float] = Field(min_length=4, max_length=4)
+    """[x, y, w, h] as fractions of the frame."""
+    t_start: float = Field(ge=0)
+    t_end: float = Field(ge=0)
+
+
+class TrackRequest(Strict):
+    blob_url: str = Field(min_length=1, max_length=2048)
+    objects: list[TrackObject] = Field(default_factory=list, max_length=16)
+    stills: list[float] = Field(default_factory=list, max_length=16)
+    """Seconds to take a small still at, one per change in the list."""

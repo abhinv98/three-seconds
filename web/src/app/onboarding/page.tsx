@@ -5,6 +5,8 @@ import { Questionnaire, type Preset } from "@/components/account/questionnaire";
 import { brandByCode, getViewer, inviteByToken, safeNext } from "@/lib/account";
 
 export const metadata: Metadata = { title: "Set up your account" };
+// A new brand folder's kit is read after the questionnaire's response, inside this page's function.
+export const maxDuration = 300;
 
 export default async function OnboardingPage({
   searchParams,

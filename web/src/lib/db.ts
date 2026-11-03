@@ -143,6 +143,25 @@ export async function createAppTables() {
       created_at TEXT NOT NULL,
       video_url  TEXT
     );
+    -- The brand kit: logo, colours and type read from the brand's site and the web, with what people say about
+    -- the brand (lib/brand-kit.ts). kit is JSON; it stays while a new read runs.
+    CREATE TABLE IF NOT EXISTS brand_kit (
+      brand_id   TEXT PRIMARY KEY REFERENCES brand(id) ON DELETE CASCADE,
+      status     TEXT NOT NULL CHECK (status IN ('reading', 'done', 'error')),
+      kit        TEXT,
+      error      TEXT,
+      cost_usd   REAL,
+      started_at TEXT NOT NULL
+    );
+    -- A Reel's finer details for its brand (lib/finer.ts): what to change, where it shows and why. JSON.
+    CREATE TABLE IF NOT EXISTS reel_details (
+      reel_id    TEXT PRIMARY KEY REFERENCES reel(id) ON DELETE CASCADE,
+      status     TEXT NOT NULL CHECK (status IN ('reading', 'done', 'error')),
+      details    TEXT,
+      error      TEXT,
+      cost_usd   REAL,
+      started_at TEXT NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS reel_owner ON reel(owner_id, created_at);
     CREATE INDEX IF NOT EXISTS reel_brand ON reel(brand_id, created_at);
     CREATE INDEX IF NOT EXISTS connection_brand ON connection(brand_id);

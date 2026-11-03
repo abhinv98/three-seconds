@@ -1,7 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { getViewer, normalizeWebsite, safeNext, saveOnboarding } from "@/lib/account";
+import { brandKits, buildBrandKit } from "@/lib/brand-kit";
 
 export type OnboardingState = { error: string } | null;
 
@@ -19,13 +21,15 @@ export async function finishOnboarding(_: OnboardingState, form: FormData): Prom
     const website = normalizeWebsite(text("website", 200));
     if (!name) return { error: "Add your company's name." };
     if (!website) return { error: "Add your website, like acme.in." };
-    await saveOnboarding(viewer.user.id, {
+    const brandId = await saveOnboarding(viewer.user.id, {
       role,
       displayName: viewer.user.name,
       handle: null,
       niche: null,
       brand: { name, website, category: text("category", 60) || null, teamSize: text("teamSize", 20) || null },
     });
+    // The folder's brand kit is read from the website and the web while they look around (about a minute).
+    if (brandId && (await brandKits.claim(brandId))) after(() => buildBrandKit({ id: brandId, name, website }));
   } else if (role === "creator") {
     const displayName = text("displayName", 80) || viewer.user.name;
     const handle = text("handle", 40).replace(/^@+/, "") || null;

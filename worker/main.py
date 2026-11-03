@@ -13,8 +13,9 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
 
-from models import AnalyzeRequest, Report
-from pipeline.frames import MAX_BYTES, VideoError
+from models import AnalyzeRequest, FramesRequest, Report, TrackRequest
+from pipeline import details
+from pipeline.frames import MAX_BYTES, VideoError, download, probe
 from pipeline.report import analyze_video, build_report
 
 # Pipeline logs (frames read, edge refinement, cost per video) next to uvicorn's own lines.
@@ -51,6 +52,39 @@ def health() -> dict[str, bool]:
 def analyze(request: AnalyzeRequest) -> Report:
     try:
         return build_report(request)
+    except VideoError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.post("/frames", dependencies=[Depends(require_token)])
+def frames(request: FramesRequest) -> dict:
+    """The finer-details pass: stills for the model that finds what to change, and a poster frame."""
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            video = download(request.blob_url, Path(tmp) / "video")
+            duration, width, height = probe(video)
+            out = Path(tmp, "frames")
+            out.mkdir()
+            return {
+                "duration_s": round(duration, 3),
+                "width": width,
+                "height": height,
+                "frames": details.frame_payload(video, out, request.fps, request.width),
+                "poster": details.b64(details.still(video, min(0.5, duration / 2), 540)),
+            }
+    except VideoError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.post("/track", dependencies=[Depends(require_token)])
+def track(request: TrackRequest) -> dict:
+    """The finer-details pass: SAM 3.1 follows each thing the model pointed at; a still per change."""
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            video = download(request.blob_url, Path(tmp) / "video")
+            duration, _, _ = probe(video)
+            objects = [o.model_dump() for o in request.objects]
+            return details.track_and_stills(video, duration, objects, request.stills)
     except VideoError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

@@ -99,21 +99,24 @@ export interface Onboarding {
   partner?: { name: string; website: string | null };
 }
 
-export async function saveOnboarding(userId: string, input: Onboarding) {
+/** Saves the answers; returns the new brand folder's id for a brand. */
+export async function saveOnboarding(userId: string, input: Onboarding): Promise<string | null> {
+  const brandId = input.role === "brand" && input.brand ? randomUUID() : null;
   const writes: InStatement[] = [
     {
       sql: "INSERT INTO profile (user_id, role, display_name, handle, niche, created_at) VALUES (?, ?, ?, ?, ?, ?)",
       args: [userId, input.role, input.displayName, input.handle, input.niche, now()],
     },
   ];
-  if (input.role === "brand" && input.brand) {
+  if (brandId && input.brand) {
     writes.push({
       sql: "INSERT INTO brand (id, owner_id, name, website, category, team_size, invite_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      args: [randomUUID(), userId, input.brand.name, input.brand.website, input.brand.category, input.brand.teamSize, newToken(), now()],
+      args: [brandId, userId, input.brand.name, input.brand.website, input.brand.category, input.brand.teamSize, newToken(), now()],
     });
   }
   if (input.role === "creator" && input.partner) writes.push(invite(userId, input.partner.name, input.partner.website).write);
   await writeAll(writes);
+  return brandId;
 }
 
 // --------------------------------------------------------------------------------------------------- connections

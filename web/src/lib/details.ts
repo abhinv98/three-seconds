@@ -49,6 +49,8 @@ export interface BrandKit {
   /** The accent first and the darkest last: the fixes are drawn in those two. */
   colors: { hex: string; name: string }[];
   fonts: string[];
+  /** Fonts to load from Google Fonts for the fixes; the preview loads its own with next/font. */
+  webFonts?: string[];
   read_at: string;
 }
 

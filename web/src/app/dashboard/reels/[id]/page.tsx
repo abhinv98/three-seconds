@@ -1,14 +1,18 @@
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, ScanSearch, Send } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { sendReelAction } from "@/app/dashboard/actions";
+import { finerDetailsAction, sendReelAction } from "@/app/dashboard/actions";
 import { Notice, Panel, ReelStatus, when } from "@/components/account/bits";
 import { ReportView } from "@/components/report-view";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
-import { creatorBrands, reelFor, requireMember } from "@/lib/account";
+import { creatorBrands, reelFor, requireMember, type ReelRow } from "@/lib/account";
+import { brandKits } from "@/lib/brand-kit";
+import { finerDetails } from "@/lib/finer";
 
 export const metadata = { title: "Reel" };
+// "Get finer details" reads the Reel after its response, inside this page's function.
+export const maxDuration = 300;
 
 export default async function ReelPage({
   params,
@@ -96,7 +100,67 @@ export default async function ReelPage({
         </Notice>
       ) : null}
       {reel.status === "checking" ? <p className="text-sm text-muted-foreground">Still checking. Refresh in a moment.</p> : null}
+      {reel.status === "done" ? <FinerPanel reel={reel} /> : null}
       {report ? <ReportView id={reel.id} report={report} embedded /> : null}
     </div>
+  );
+}
+
+/** The way into the finer-details pass: what to change for the brand, where it shows, and why. */
+async function FinerPanel({ reel }: { reel: ReelRow }) {
+  if (!reel.brand_id) {
+    return (
+      <p className="rounded-[10px] border border-dashed border-border px-5 py-3.5 text-sm text-muted-foreground">
+        Send this Reel to a brand to get finer details for it: what to change, where it shows, and why it matters to that brand.
+      </p>
+    );
+  }
+  const [job, kit] = await Promise.all([finerDetails.get(reel.id), brandKits.get(reel.brand_id)]);
+  const open = (label: string) => (
+    <Button asChild size="compact">
+      <Link href={`/dashboard/reels/${reel.id}/details`}>
+        {label}
+        <ArrowRight size={15} aria-hidden="true" />
+      </Link>
+    </Button>
+  );
+  const start = (label: string, disabled = false) => (
+    <form action={finerDetailsAction}>
+      <input type="hidden" name="reelId" value={reel.id} />
+      <Button type="submit" size="compact" disabled={disabled}>
+        <ScanSearch size={15} aria-hidden="true" />
+        {label}
+      </Button>
+    </form>
+  );
+  const kitReady = kit?.status === "done" && kit.data !== null;
+  const brandName = reel.brand_name ?? "the brand";
+
+  let body: React.ReactNode;
+  let action: React.ReactNode;
+  if (job?.status === "done" && job.data) {
+    body = `${job.data.moments.length} changes for ${brandName}, outlined on the Reel. ${job.data.finding}`;
+    action = open("Open finer details");
+  } else if (job?.status === "reading") {
+    body = `Reading the Reel for ${brandName}: the frames, what to change, then tracing each change on screen. About two minutes.`;
+    action = open("See progress");
+  } else {
+    body =
+      job?.status === "error"
+        ? `The last read didn't finish: ${job.error}`
+        : kitReady
+          ? `A closer read for ${brandName}: what to change before it goes live, outlined on the Reel, with the reason it matters to ${brandName}.`
+          : kit?.status === "reading"
+            ? `${brandName}'s brand kit is still being read. Finer details use its colours and research, so they open once it's done.`
+            : `${brandName} needs its brand kit first, read from its website on the overview.`;
+    action = start(job?.status === "error" ? "Try again" : "Get finer details", !kitReady);
+  }
+  return (
+    <Panel title="Finer details">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4">
+        <p className="max-w-[640px] min-w-0 flex-1 text-sm text-muted-foreground">{body}</p>
+        {action}
+      </div>
+    </Panel>
   );
 }

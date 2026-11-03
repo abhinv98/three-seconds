@@ -1,12 +1,16 @@
 import { Upload } from "lucide-react";
 import Link from "next/link";
+import { BrandKitPanel } from "@/components/account/brand-kit-panel";
 import { CopyLink } from "@/components/account/copy-link";
 import { EmptyState, PageHeader, Panel, ReelTable } from "@/components/account/bits";
 import { Tick } from "@/components/landing/tick";
 import { Button } from "@/components/ui/button";
 import { brandCreators, creatorBrands, reelsFor, requireMember, siteOrigin, type Member } from "@/lib/account";
+import { brandKits } from "@/lib/brand-kit";
 
 export const metadata = { title: "Overview" };
+// Reading the brand kit runs after the "Read brand kit" response, inside this page's function.
+export const maxDuration = 300;
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireMember("/dashboard");
@@ -78,7 +82,14 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
             />
           )}
         </Panel>
-        {brand ? <CreatorsPanel brandId={brand.id} code={brand.invite_code} /> : <BrandsPanel creatorId={viewer.user.id} />}
+        {brand ? (
+          <div className="grid gap-6">
+            <BrandKitPanel job={await brandKits.get(brand.id)} site={brand.website.replace(/^https:\/\/(www\.)?/, "")} />
+            <CreatorsPanel brandId={brand.id} code={brand.invite_code} />
+          </div>
+        ) : (
+          <BrandsPanel creatorId={viewer.user.id} />
+        )}
       </div>
     </div>
   );

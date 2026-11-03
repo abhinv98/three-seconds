@@ -110,7 +110,7 @@ export function AnnotatedPlayer({ details, videoRef, mode, onMode, selected, bra
           aria-label={`Video: ${reel.filename}`}
         >
           {reel.video.map((v) => (
-            <source key={v.src} src={v.src} type={v.type} />
+            <source key={v.src} src={v.src} type={v.type || undefined} />
           ))}
         </video>
 
