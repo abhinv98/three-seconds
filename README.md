@@ -49,7 +49,7 @@ Environment (`worker/.env`, see `worker/.env.example`):
 
 Two projects in the same team, both in `iad1` with Fluid compute:
 
-- `three-seconds`: Next.js, root directory `web` (it builds `../shared` too). A public Blob store (`three-seconds-reels`) and a Turso database from the Vercel Marketplace are connected to it. Environment: `ANTHROPIC_API_KEY`, `BETTER_AUTH_SECRET`, `WORKER_TOKEN` (sensitive) and `WORKER_URL` (the worker's production URL). Vercel Authentication stays on, so a deployment opens only for members of the team.
+- `three-seconds`: Next.js, root directory `web` (it builds `../shared` too). A public Blob store (`three-seconds-reels`) and a Turso database from the Vercel Marketplace are connected to it. Environment: `ANTHROPIC_API_KEY`, `BETTER_AUTH_SECRET`, `WORKER_TOKEN` (sensitive) and `WORKER_URL` (the worker's production URL). The production domain is public; Vercel Authentication covers only each deployment's own URL.
 - `three-seconds-worker`: FastAPI, root directory `worker`, `main.py` with a 300 s limit (`worker/vercel.json`). Its build step (`[tool.vercel.scripts]` in `worker/pyproject.toml`) copies `shared/` into the function and downloads ffmpeg. Environment: `BASETEN_API_KEY`, `FIREWORKS_API_KEY`, `META_API_KEY`, `WORKER_TOKEN` (sensitive) and `PROVIDER`. Vercel Authentication is off; `WORKER_TOKEN` guards it instead.
 
 Deploy from a clean copy of a commit, so only tracked files are uploaded:
