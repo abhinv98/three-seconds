@@ -1,5 +1,7 @@
+import http.client
 import io
 import json
+import urllib.error
 
 import pytest
 
@@ -58,4 +60,55 @@ def test_chat_rejects_a_truncated_answer_and_an_unknown_provider(monkeypatch):
         llm.chat([{"role": "user", "content": "hi"}])
     monkeypatch.setenv("PROVIDER", "openai")
     with pytest.raises(llm.LLMError, match="PROVIDER"):
+        llm.chat([{"role": "user", "content": "hi"}])
+
+
+NETWORK_FAILURES = [
+    TimeoutError("timed out"),
+    urllib.error.URLError("connection refused"),
+    ConnectionResetError("reset by peer"),
+    http.client.IncompleteRead(b"partial"),
+]
+
+
+@pytest.fixture
+def baseten(monkeypatch):
+    monkeypatch.delenv("PROVIDER", raising=False)
+    monkeypatch.setenv("BASETEN_API_KEY", "b10_test")
+    monkeypatch.setattr(llm.time, "sleep", lambda _: None)
+
+
+@pytest.mark.parametrize("failure", NETWORK_FAILURES, ids=lambda f: type(f).__name__)
+def test_chat_retries_a_lost_request_once_then_raises_llm_error(monkeypatch, baseten, failure):
+    calls = []
+
+    def urlopen(request, timeout):
+        calls.append(timeout)
+        raise failure
+
+    monkeypatch.setattr(llm.urllib.request, "urlopen", urlopen)
+    with pytest.raises(llm.LLMError, match="no answer"):
+        llm.chat([{"role": "user", "content": "hi"}])
+    assert calls == [llm.REQUEST_TIMEOUT_S] * 2
+
+
+@pytest.mark.parametrize("failure", NETWORK_FAILURES, ids=lambda f: type(f).__name__)
+def test_chat_uses_the_answer_when_the_retry_works(monkeypatch, baseten, failure):
+    good = fake_urlopen([])
+    answers = iter([failure, None])
+
+    def urlopen(request, timeout):
+        answer = next(answers)
+        if answer:
+            raise answer
+        return good(request, timeout)
+
+    monkeypatch.setattr(llm.urllib.request, "urlopen", urlopen)
+    assert llm.chat([{"role": "user", "content": "hi"}]).text == "answer"
+
+
+@pytest.mark.parametrize("body", [b'{"choices": [', b'{"error": "busy"}', b'{"choices": []}', b"[]"])
+def test_chat_turns_a_garbled_answer_into_llm_error(monkeypatch, baseten, body):
+    monkeypatch.setattr(llm.urllib.request, "urlopen", lambda request, timeout: io.BytesIO(body))
+    with pytest.raises(llm.LLMError):
         llm.chat([{"role": "user", "content": "hi"}])

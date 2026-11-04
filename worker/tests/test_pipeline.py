@@ -1,3 +1,4 @@
+import io
 import json
 import subprocess
 
@@ -5,11 +6,11 @@ import pytest
 
 import llm
 from models import Check
-from pipeline.frames import sample_frames
+from pipeline.frames import Frame, sample_frames
 from pipeline.report import analyze_video
 from pipeline.rules import evaluate_rules, overall_verdict
 from pipeline.track import label_track
-from pipeline.vision import FrameReading, parse_readings
+from pipeline.vision import FrameReading, parse_readings, read_frames
 
 TIMES = [0.0, 0.5, 1.0, 1.5]
 FRAME = {
@@ -39,6 +40,30 @@ def test_parse_readings_survives_prose_fences_and_missing_frames():
     readings = parse_readings(text, TIMES)
     assert [r.label_present for r in readings] == [True, False, None, None]
     assert (readings[0].kind, readings[0].label_text, readings[0].legible) == ("caption", "Sponsored hai", True)
+
+
+def test_a_batch_that_times_out_twice_is_unknown_and_the_other_batches_stand(monkeypatch, tmp_path):
+    """Two batches: the second never answers. The check goes on, with those frames unknown rather than absent."""
+    monkeypatch.delenv("PROVIDER", raising=False)
+    monkeypatch.setenv("BASETEN_API_KEY", "b10_test")
+    monkeypatch.setattr(llm.time, "sleep", lambda _: None)
+    lost = []
+
+    def urlopen(request, timeout):
+        if '"t=4.0"' in request.data.decode():
+            lost.append(request)
+            raise TimeoutError("timed out")
+        answer = json.dumps([{"t": i / 2, "label_present": False} for i in range(8)])
+        return io.BytesIO(json.dumps({"choices": [{"message": {"content": answer}, "finish_reason": "stop"}]}).encode())
+
+    monkeypatch.setattr(llm.urllib.request, "urlopen", urlopen)
+    jpeg = tmp_path / "frame.jpg"
+    jpeg.write_bytes(b"jpeg")
+    readings, replies = read_frames([Frame(t=i / 2, path=jpeg) for i in range(10)])
+
+    assert [r.label_present for r in readings] == [False] * 8 + [None] * 2
+    assert len(replies) == 1
+    assert len(lost) == 2
 
 
 def test_parse_readings_matches_in_order_when_timestamps_are_missing_and_gives_up_on_garbage():

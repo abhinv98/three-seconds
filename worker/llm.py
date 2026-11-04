@@ -13,6 +13,7 @@ Audio input works on Baseten only: Fireworks rejects audio_url and input_audio p
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import os
 import time
@@ -59,6 +60,9 @@ class Reply:
 
 
 _RETRY_STATUS = {429, 500, 502, 503, 529}
+_NETWORK_RETRIES = 1
+REQUEST_TIMEOUT_S = 90
+"""Per attempt. Requests usually take 8-30s, and a retried batch has to finish inside the worker's 300s limit."""
 
 
 class LLMError(RuntimeError):
@@ -92,14 +96,14 @@ def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> Reply:
 
     Args:
         messages: OpenAI-format messages; content may mix text, image_part() and audio_part().
-        attempts: Tries for 429/5xx/529, with 1s, 2s, 4s backoff.
+        attempts: Tries for 429/5xx/529, with 1s, 2s, 4s backoff. A timeout or lost connection gets one retry.
         **params: Extra request fields, e.g. reasoning_effort="low" or max_tokens=2048.
 
     Returns:
         The answer text (choices[0].message.content, without the reasoning), tokens and cost.
 
     Raises:
-        LLMError: HTTP error, refusal, or an answer cut off by max_tokens.
+        LLMError: HTTP error, no usable answer after the retry, refusal, or an answer cut off by max_tokens.
     """
     p = provider()
     body = json.dumps({"model": p.model, "messages": messages, **params}).encode()
@@ -110,16 +114,23 @@ def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> Reply:
     )
     for attempt in range(attempts):
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_S) as response:
                 data = json.load(response)
             break
         except urllib.error.HTTPError as e:
             if e.code not in _RETRY_STATUS or attempt == attempts - 1:
                 raise LLMError(f"{p.model}: HTTP {e.code}: {e.read().decode(errors='replace')[:500]}") from e
             time.sleep(2**attempt)
+        except (OSError, http.client.HTTPException, ValueError) as e:  # Timeout, lost connection, cut-off body.
+            if attempt >= min(_NETWORK_RETRIES, attempts - 1):
+                raise LLMError(f"{p.model}: no answer: {e!r}") from e
+            time.sleep(2**attempt)
 
-    choice = data["choices"][0]
-    message = choice["message"]
+    try:
+        choice = data["choices"][0]
+        message = choice["message"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise LLMError(f"{p.model}: unexpected answer: {json.dumps(data)[:300]}") from e
     if message.get("refusal"):
         raise LLMError(f"{p.model} refused: {message['refusal']}")
     if choice.get("finish_reason") == "length":
