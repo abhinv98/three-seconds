@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { workerHeaders } from "@/lib/check-reel";
+import { analysisEnabled, claimAnalysis, findStoredVideo, workerHeaders } from "@/lib/check-reel";
 import { buildMockReport } from "@/lib/mock";
 
 // The worker reads frames with Muse Spark Open (8-30s per request) and, when the label's hold is within
@@ -32,6 +32,9 @@ function parseBody(value: unknown): AnalyzeBody | null {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function POST(request: Request) {
+  if (!analysisEnabled()) {
+    return NextResponse.json({ error: "Checks are switched off right now. Please try again later." }, { status: 503 });
+  }
   const body = parseBody(await request.json().catch(() => null));
   if (!body) {
     return NextResponse.json({ error: "Send { blobUrl, filename } as JSON." }, { status: 400 });
@@ -39,12 +42,21 @@ export async function POST(request: Request) {
 
   const workerUrl = process.env.WORKER_URL;
   if (workerUrl) {
+    // A real check costs money; mock mode below doesn't (and in dev its URL is this tab's blob:, not the store's).
+    const video = await findStoredVideo(body.blobUrl);
+    if ("error" in video) return NextResponse.json({ error: video.error }, { status: video.status });
+    if (!(await claimAnalysis())) {
+      return NextResponse.json(
+        { error: "Today's free checks are used up. Please try again after midnight IST." },
+        { status: 429 },
+      );
+    }
     try {
       const response = await fetch(`${workerUrl.replace(/\/+$/, "")}/analyze`, {
         method: "POST",
         headers: workerHeaders("application/json"),
         body: JSON.stringify({
-          blob_url: body.blobUrl,
+          blob_url: video.url,
           filename: body.filename,
           duration_s: body.durationS,
           width: body.width,
