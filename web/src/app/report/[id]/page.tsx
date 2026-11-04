@@ -9,11 +9,11 @@ import type { Report } from "@/lib/report";
 
 export const metadata: Metadata = { title: "Report" };
 
-/** The fixture report with its matching sample Reel (web/public/sample), for /report/sample. */
+/** The sample report with the video it was made from (web/public/sample), for /report/sample. */
 const sampleReport: Report = {
   ...SAMPLE_REPORT,
   job_id: "sample",
-  video: { ...SAMPLE_REPORT.video, blob_url: "/sample/glow-serum-reel.mp4", width: 720, height: 1280 },
+  video: { ...SAMPLE_REPORT.video, blob_url: "/sample/sample-fail.mp4" },
 };
 
 export default async function ReportPage({ params }: PageProps<"/report/[id]">) {

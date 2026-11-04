@@ -5,7 +5,7 @@ import { Icon, type IconName } from "@/components/icon";
 import { StatusBadge } from "@/components/status-badge";
 import { Timeline } from "@/components/timeline";
 import { SAMPLE_REPORT } from "@/lib/mock";
-import { spokenMarkers } from "@/lib/summary";
+import { spokenMarkers, timelineSummary, verdictHeadline } from "@/lib/summary";
 
 const CHECKS: { icon: IconName; title: string; body: string }[] = [
   { icon: "tag", title: "Label on screen", body: "Is a disclosure such as “Paid partnership” visible?" },
@@ -35,6 +35,7 @@ export function SamplePreview() {
   const report = SAMPLE_REPORT;
   const duration = report.video.duration_s;
   const playhead = useSweep(duration, 2.2);
+  const { headline, note } = verdictHeadline(report);
 
   return (
     <div className="flex flex-col gap-8">
@@ -44,13 +45,12 @@ export function SamplePreview() {
           <span className="ts-code truncate text-muted-foreground">{report.video.filename}</span>
         </figcaption>
         <p className="sr-only">
-          A sample report: Fail. Label held 1.8s and is gone before the brand appears. The timeline shows the label, the
-          brand and a spoken disclosure.
+          A sample report: Fail. {headline} {note} {timelineSummary(report)}
         </p>
         <div aria-hidden="true" className="mt-5">
           <StatusBadge status="fail" tone="solid" />
-          <p className="ts-headline mt-3">Label held 1.8s.</p>
-          <p className="ts-body-sm mt-1 text-muted-foreground">Gone before the brand appears at 00:03.0.</p>
+          <p className="ts-headline mt-3">{headline}</p>
+          <p className="ts-body-sm mt-1 text-muted-foreground">{note}</p>
           <Timeline
             className="mt-5"
             duration={duration}

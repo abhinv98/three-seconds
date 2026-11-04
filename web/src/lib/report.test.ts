@@ -3,6 +3,8 @@ import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import schema from "../../../shared/report.schema.json";
 import fixture from "../../../shared/fixtures/mock-report.json";
+import samplePass from "../../../shared/fixtures/sample-report-pass.json";
+import sample from "../../../shared/fixtures/sample-report.json";
 import { asciClause } from "./asci";
 import { formatTimecode } from "./format";
 import { buildMockReport, scaleTimesInText } from "./mock";
@@ -39,6 +41,20 @@ describe("report contract", () => {
     const cited = (fixture as Report).checks.flatMap((c) => (c.clause ? [c.clause] : []));
     expect(cited.map((c) => c.code)).toEqual(["ASCI-IG 1.3a", "ASCI-IG 1.2e.II", "ASCI-IG 1.3b"]);
     for (const clause of cited) expect(clause).toEqual(asciClause(clause.code));
+  });
+});
+
+describe("sample reports", () => {
+  it.each([
+    ["sample-report.json", sample, "FAIL"],
+    ["sample-report-pass.json", samplePass, "PASS"],
+  ])("%s is a real report: valid, not mock, no brand lane, clauses quoted", (_, value, verdict) => {
+    expectValid(value);
+    const report = value as Report;
+    expect(report.mock).toBe(false);
+    expect(report.verdict).toBe(verdict);
+    expect(report.tracks.map((t) => t.kind)).toEqual(["disclosure_label"]);
+    for (const check of report.checks) if (check.clause) expect(check.clause).toEqual(asciClause(check.clause.code));
   });
 });
 

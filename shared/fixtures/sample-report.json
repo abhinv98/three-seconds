@@ -1,0 +1,113 @@
+{
+  "job_id": "b6d7c65e-6d95-4e0f-a184-3df203cd194f",
+  "status": "done",
+  "mock": false,
+  "video": {
+    "filename": "Dcw895lx2wp-fail.mp4",
+    "blob_url": "https://wnlnrzyc3tkrvsfz.public.blob.vercel-storage.com/videos/dcw895lx2wp-fail-sLkMZOKJpZP4QPohRA77EuklM6lYKS.mp4",
+    "duration_s": 16.23,
+    "width": 720,
+    "height": 1280,
+    "fps_sampled": 2
+  },
+  "verdict": "FAIL",
+  "checks": [
+    {
+      "id": "label_present",
+      "title": "Disclosure label on screen",
+      "verdict": "PASS",
+      "detail": "\"Paid partnership\" label on screen from 00:00.5.",
+      "clause": {
+        "code": "ASCI-IG 1.3a",
+        "text": "Following is the list of disclosure labels permitted. Any one or more can be used: Advertisement, Ad, Sponsored, Collaboration, Partnership, Employee, Free gift, “Paid Partnership” tag on Instagram, Affiliate, “Includes Paid Promotion” tag on YouTube.",
+        "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf"
+      },
+      "evidence": [
+        {
+          "t_start": 0.5,
+          "t_end": 2.5,
+          "kind": "label",
+          "note": "\"Paid partnership\" label, top-left"
+        }
+      ],
+      "fix": null
+    },
+    {
+      "id": "label_duration",
+      "title": "Label held long enough",
+      "verdict": "FAIL",
+      "detail": "Label held 2.0s at most in one stretch; this 16.2s video needs 5.4s. On screen 2.0s in all.",
+      "clause": {
+        "code": "ASCI-IG 1.2e.II",
+        "text": "For videos longer than 15 seconds, but less than 2 minutes, the disclosure label should stay for 1/3rd the length of the video.",
+        "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf"
+      },
+      "evidence": [
+        {
+          "t_start": 0.5,
+          "t_end": 2.5,
+          "kind": "label",
+          "note": "\"Paid partnership\" label, top-left"
+        }
+      ],
+      "fix": {
+        "steps": [
+          "Keep a permitted label on screen for at least 5.4s without a break."
+        ]
+      }
+    },
+    {
+      "id": "label_language",
+      "title": "Label in English or the ad's language",
+      "verdict": "PASS",
+      "detail": "Disclosure uses English, which ASCI accepts for an ad in any language.",
+      "clause": {
+        "code": "ASCI-IG 1.3b",
+        "text": "The disclosure should be in English OR in the language as the advertisement itself, in a way that is easy for an average consumer to understand.",
+        "source_url": "https://www.ascionline.in/wp-content/uploads/2023/08/GUIDELINES-FOR-INFLUENCER-ADVERTISING-IN-DIGITAL-MEDIA.pdf"
+      },
+      "evidence": [
+        {
+          "t_start": 0.5,
+          "t_end": 2.5,
+          "kind": "label",
+          "note": "Label text \"Paid partnership\", English"
+        }
+      ],
+      "fix": null
+    },
+    {
+      "id": "spoken_disclosure",
+      "title": "Spoken disclosure",
+      "verdict": "INFO",
+      "detail": "No speech heard.",
+      "clause": null,
+      "evidence": [],
+      "fix": null
+    }
+  ],
+  "tracks": [
+    {
+      "label": "Paid partnership",
+      "kind": "disclosure_label",
+      "spans": [
+        {
+          "t_start": 0.5,
+          "t_end": 2.5
+        }
+      ],
+      "first_seen_s": 0.5,
+      "last_seen_s": 2.5,
+      "total_on_screen_s": 2,
+      "longest_continuous_s": 2,
+      "max_frame_share": 0
+    }
+  ],
+  "transcript": [],
+  "audio_checked": true,
+  "models_used": [
+    "meta-models/muse-spark-open-1026",
+    "muse-voice-transcribe-1.0"
+  ],
+  "generated_at": "2026-11-04T17:48:57.517707Z"
+}

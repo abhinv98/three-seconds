@@ -1,4 +1,5 @@
 import fixture from "../../../shared/fixtures/mock-report.json";
+import sample from "../../../shared/fixtures/sample-report.json";
 import { formatHold, requiredHold } from "./asci";
 import { formatSeconds, formatTimecode, parseTimecode } from "./format";
 import type { Report } from "./report";
@@ -94,5 +95,5 @@ export function buildMockReport(input: MockReportInput): Report {
   };
 }
 
-/** The untouched fixture, for the sample shown on the upload page. */
-export const SAMPLE_REPORT: Report = FIXTURE;
+/** A real report from the deployed pipeline, for the sample on the upload page and /report/sample. */
+export const SAMPLE_REPORT = sample as Report;
