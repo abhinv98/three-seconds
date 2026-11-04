@@ -31,3 +31,7 @@ Thumbs.db
 # worker: what build.py adds on Vercel (ffmpeg and ffprobe, and a copy of shared/)
 /worker/bin/
 /worker/shared/
+
+# reels used for testing, and rendered demo films
+/testreels/
+/brag-output*/
