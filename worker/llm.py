@@ -91,6 +91,14 @@ def audio_part(wav: bytes) -> dict:
     return {"type": "audio_url", "audio_url": {"url": url}}
 
 
+def _error_body(error: urllib.error.HTTPError) -> str:
+    """The connection can drop while the error's own body is being read."""
+    try:
+        return error.read().decode(errors="replace")[:500]
+    except (OSError, http.client.HTTPException) as e:
+        return f"(body lost: {e!r})"
+
+
 def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> Reply:
     """Send a Chat Completions request and return the final answer with its token usage.
 
@@ -119,7 +127,7 @@ def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> Reply:
             break
         except urllib.error.HTTPError as e:
             if e.code not in _RETRY_STATUS or attempt == attempts - 1:
-                raise LLMError(f"{p.model}: HTTP {e.code}: {e.read().decode(errors='replace')[:500]}") from e
+                raise LLMError(f"{p.model}: HTTP {e.code}: {_error_body(e)}") from e
             time.sleep(2**attempt)
         except (OSError, http.client.HTTPException, ValueError) as e:  # Timeout, lost connection, cut-off body.
             if attempt >= min(_NETWORK_RETRIES, attempts - 1):
@@ -129,15 +137,18 @@ def chat(messages: list[dict], *, attempts: int = 3, **params: object) -> Reply:
     try:
         choice = data["choices"][0]
         message = choice["message"]
-    except (KeyError, IndexError, TypeError) as e:
+        if message.get("refusal"):
+            raise LLMError(f"{p.model} refused: {message['refusal']}")
+        if choice.get("finish_reason") == "length":
+            raise LLMError(f"{p.model} hit max_tokens before finishing its answer (reasoning counts toward it)")
+        text = message.get("content") or ""
+        if not isinstance(text, str):
+            raise TypeError("content is not text")
+        usage = data.get("usage") or {}
+        prompt_tokens, completion_tokens = usage.get("prompt_tokens") or 0, usage.get("completion_tokens") or 0
+        cost = None
+        if p.usd_per_m_input is not None and p.usd_per_m_output is not None:
+            cost = (prompt_tokens * p.usd_per_m_input + completion_tokens * p.usd_per_m_output) / 1e6
+        return Reply(text, prompt_tokens, completion_tokens, cost)
+    except (KeyError, IndexError, TypeError, AttributeError) as e:
         raise LLMError(f"{p.model}: unexpected answer: {json.dumps(data)[:300]}") from e
-    if message.get("refusal"):
-        raise LLMError(f"{p.model} refused: {message['refusal']}")
-    if choice.get("finish_reason") == "length":
-        raise LLMError(f"{p.model} hit max_tokens before finishing its answer (reasoning counts toward it)")
-    usage = data.get("usage") or {}
-    prompt_tokens, completion_tokens = usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0)
-    cost = None
-    if p.usd_per_m_input is not None and p.usd_per_m_output is not None:
-        cost = (prompt_tokens * p.usd_per_m_input + completion_tokens * p.usd_per_m_output) / 1e6
-    return Reply(message.get("content") or "", prompt_tokens, completion_tokens, cost)

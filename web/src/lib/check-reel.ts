@@ -11,7 +11,7 @@ export function workerHeaders(contentType: string): Record<string, string> {
 }
 
 /** head() looks the URL up with this project's Blob token, so only a video in our own store gets past here. */
-export async function findStoredVideo(url: string): Promise<HeadBlobResult | { error: string; status: number }> {
+async function findStoredVideo(url: string): Promise<HeadBlobResult | { error: string; status: number }> {
   const blob = await head(url).catch(() => null);
   if (!blob || !blob.pathname.startsWith("videos/")) {
     return { error: "That video isn't in this site's storage. Upload it again.", status: 400 };
@@ -25,8 +25,8 @@ export async function findStoredVideo(url: string): Promise<HeadBlobResult | { e
   return blob;
 }
 
-/** The kill switch. Unset or "true" allows checks; any other value stops them, so a typo can't leave spending on. */
-export function analysisEnabled(): boolean {
+/** The kill switch. Unset, "true" or "1" allows checks; any other value stops them, so a typo can't leave spending on. */
+function analysisEnabled(): boolean {
   const flag = process.env.ANALYZE_ENABLED?.trim().toLowerCase();
   return !flag || flag === "true" || flag === "1";
 }
@@ -38,7 +38,7 @@ const DEFAULT_DAILY_CAP = 25;
  * write transaction, so racing requests can't overshoot. Every attempt counts, even one the worker then fails: the
  * money may be spent by then. The table is created here because /check has no account, so schemaReady() never runs.
  */
-export async function claimAnalysis(): Promise<boolean> {
+async function claimAnalysis(): Promise<boolean> {
   const configured = Number.parseInt(process.env.ANALYZE_DAILY_CAP ?? "", 10);
   const cap = configured >= 0 ? configured : DEFAULT_DAILY_CAP;
   if (cap === 0) return false;
@@ -54,6 +54,20 @@ export async function claimAnalysis(): Promise<boolean> {
     "write",
   );
   return claim.rows.length > 0;
+}
+
+/**
+ * Every route that starts a check comes through here first: the kill switch, our own store, then the daily cap.
+ * Returns the stored video, or why the check can't run. Without a worker nothing is spent, so the cap doesn't apply.
+ */
+export async function admitCheck(url: string): Promise<HeadBlobResult | { error: string; status: number }> {
+  if (!analysisEnabled()) return { error: "Checks are switched off right now. Please try again later.", status: 503 };
+  const video = await findStoredVideo(url);
+  if ("error" in video) return video;
+  if (process.env.WORKER_URL && !(await claimAnalysis())) {
+    return { error: "Today's free checks are used up. Please try again after midnight IST.", status: 429 };
+  }
+  return video;
 }
 
 /**

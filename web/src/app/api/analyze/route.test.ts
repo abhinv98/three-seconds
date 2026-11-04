@@ -12,10 +12,18 @@ vi.mock("@vercel/blob", () => ({
   },
 }));
 
+vi.mock("@/lib/account", () => ({
+  getViewer: async () => ({ profile: {} }),
+  startReel: async () => {},
+  finishReel: async () => {},
+  failReel: async () => {},
+}));
+
 // A database of its own: db.ts opens its file on import.
 process.env.DATA_DIR = mkdtempSync(path.join(tmpdir(), "analyze-test-"));
 delete process.env.TURSO_DATABASE_URL;
 const { POST } = await import("./route");
+const { POST: reels } = await import("../reels/route");
 const { db } = await import("@/lib/db");
 
 const worker = vi.fn<typeof fetch>(async () => Response.json({ job_id: "job" }));
@@ -91,6 +99,23 @@ test.each(["false", "0", "off", "FALSE "])("ANALYZE_ENABLED=%j stops checks", as
 test.each(["", "true", "1", " True "])("ANALYZE_ENABLED=%j allows checks", async (flag) => {
   vi.stubEnv("ANALYZE_ENABLED", flag);
   expect((await analyze()).status).toBe(200);
+});
+
+test("a signed-in check shares the kill switch and the cap", async () => {
+  const check = () =>
+    reels(new Request("http://site.test/api/reels", { method: "POST", body: JSON.stringify({ url: OWN_URL, filename: "reel.mp4" }) }));
+  vi.stubEnv("ANALYZE_DAILY_CAP", "1");
+  expect((await analyze()).status).toBe(200);
+  expect((await check()).status).toBe(429);
+  expect(worker).toHaveBeenCalledTimes(1);
+
+  vi.stubEnv("ANALYZE_DAILY_CAP", "2");
+  expect((await check()).status).toBe(200);
+  expect(worker).toHaveBeenCalledTimes(2);
+
+  vi.stubEnv("ANALYZE_ENABLED", "false");
+  expect((await check()).status).toBe(503);
+  expect(worker).toHaveBeenCalledTimes(2);
 });
 
 test("mock mode spends nothing, so a tab's blob: URL still gets its sample report", async () => {

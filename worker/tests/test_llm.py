@@ -107,8 +107,41 @@ def test_chat_uses_the_answer_when_the_retry_works(monkeypatch, baseten, failure
     assert llm.chat([{"role": "user", "content": "hi"}]).text == "answer"
 
 
-@pytest.mark.parametrize("body", [b'{"choices": [', b'{"error": "busy"}', b'{"choices": []}', b"[]"])
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"choices": [',
+        b'{"error": "busy"}',
+        b'{"choices": []}',
+        b"[]",
+        b'{"choices": [{"message": null}]}',
+        b'{"choices": [{"message": {"content": [{"type": "text"}]}}]}',
+        b'{"choices": [{"message": {"content": "a"}}], "usage": 5}',
+        b'{"choices": [{"message": {"content": "a"}}], "usage": {"prompt_tokens": "many"}}',
+    ],
+)
 def test_chat_turns_a_garbled_answer_into_llm_error(monkeypatch, baseten, body):
     monkeypatch.setattr(llm.urllib.request, "urlopen", lambda request, timeout: io.BytesIO(body))
     with pytest.raises(llm.LLMError):
+        llm.chat([{"role": "user", "content": "hi"}])
+
+
+def test_chat_reads_null_token_counts_as_zero(monkeypatch, baseten):
+    body = b'{"choices": [{"message": {"content": "a"}}], "usage": {"prompt_tokens": null}}'
+    monkeypatch.setattr(llm.urllib.request, "urlopen", lambda request, timeout: io.BytesIO(body))
+    reply = llm.chat([{"role": "user", "content": "hi"}])
+    assert (reply.text, reply.prompt_tokens, reply.cost_usd) == ("a", 0, 0.0)
+
+
+@pytest.mark.parametrize("status", [400, 503])
+def test_chat_survives_losing_the_error_response_itself(monkeypatch, baseten, status):
+    class Lost(io.RawIOBase):
+        def read(self, *_):
+            raise TimeoutError("timed out")
+
+    def urlopen(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, status, "Error", {}, Lost())
+
+    monkeypatch.setattr(llm.urllib.request, "urlopen", urlopen)
+    with pytest.raises(llm.LLMError, match=f"HTTP {status}.*body lost"):
         llm.chat([{"role": "user", "content": "hi"}])

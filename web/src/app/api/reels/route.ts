@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { failReel, finishReel, getViewer, startReel, type Member } from "@/lib/account";
-import { findStoredVideo, runCheck } from "@/lib/check-reel";
+import { admitCheck, runCheck } from "@/lib/check-reel";
 
 // A signed-in member checks a Reel. The browser has already uploaded it to Vercel Blob (with a token from
 // /api/upload); this records it, has the worker check it and keeps the report.
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   if (!url || url.length > 2048 || !filename || filename.length > 255) {
     return NextResponse.json({ error: "Upload the video, then send { url, filename }." }, { status: 400 });
   }
-  const blob = await findStoredVideo(url);
+  const blob = await admitCheck(url);
   if ("error" in blob) return NextResponse.json({ error: blob.error }, { status: blob.status });
 
   const id = randomUUID();
