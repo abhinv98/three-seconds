@@ -1,5 +1,27 @@
 # Three Seconds
 
+Checks a creator's Reel or Short against India's ASCI influencer disclosure rules before it is published.
+
+Live: https://three-seconds-six.vercel.app (upload at `/check`). Checks are limited to 25 a day across all visitors.
+
+Real reports from the live pipeline, on one 16s clip with the label on screen for 1.8s and then for 6.42s: [FAIL](shared/fixtures/sample-report.json) (shown at `/report/sample`) and [PASS](shared/fixtures/sample-report-pass.json).
+
+## What runs where
+
+- Frames: Muse Spark Open on Baseten reads frames sampled at 2 fps, and at 10 fps around the label's edges when the hold is within half a second of the requirement.
+- Audio: Muse Voice Transcribe on the Meta Model API transcribes speech, for the spoken disclosure and label language checks.
+- Verdict: a deterministic rule engine with no model in it (`worker/pipeline/rules.py`), citing ASCI-IG 1.2e.I and 1.2e.II (how long the label holds), 1.3a (which words count as a label) and 1.3b (label language).
+
+A 60s Reel finished in about 64s at about $0.23, against the worker's 300s limit.
+
+## Known limits
+
+- No caption field: only the video is checked, not the post's caption.
+- No PDF export.
+- Uploads are not deleted automatically.
+- No accuracy table: the pipeline has not been measured against a labelled set of Reels.
+- SAM 3.1 is experimental and not in the verdict path; it runs only in signed-in Finer Details. `sam_track` doesn't handle a connection dropped mid-stream, so one reset fails that Finer Details pass.
+
 ## Web (`web/`, Next.js)
 
 ```bash
@@ -22,6 +44,8 @@ Environment (`web/.env.local`, see `web/.env.example`):
 - `BETTER_AUTH_SECRET`: signs sessions. Required deployed.
 - `WORKER_TOKEN`: the secret the deployed worker requires on every check (the same value in both Vercel projects). Leave it unset locally.
 - `WORKER_URL`: worker base URL, for example `http://127.0.0.1:8000`. Without it, `/api/analyze` returns the sample report.
+- `ANALYZE_ENABLED`: the kill switch for every check. Unset, `true` or `1` allows them; any other value stops them. Vercel applies env changes to new deployments only, so changing it takes a redeploy.
+- `ANALYZE_DAILY_CAP`: checks allowed per day across all visitors, counted in the database, resetting at midnight IST. Defaults to 25.
 - With `WORKER_URL` set but no Blob token (local dev), `/check` posts the video's bytes to `/api/analyze-local`, which streams them to the worker's `POST /analyze-upload`. Start the worker with `ALLOW_UPLOADS=1` in `worker/.env` for that; both are off outside development.
 - `DEV_ORIGINS`: dev only, extra hostnames (a LAN or Tailscale address, comma-separated) allowed to open the dev server from another device.
 
