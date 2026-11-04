@@ -243,7 +243,7 @@ export function UploadFlow({ storage, analysis }: UploadFlowProps) {
           ? phase.message
           : analysis === "mock"
             ? "Sample report, AI pipeline not connected yet."
-            : "Disclosure label, brand and speech.",
+            : "Disclosure label and speech.",
       status:
         phase.kind === "analyzing"
           ? "active"
