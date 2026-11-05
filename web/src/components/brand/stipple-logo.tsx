@@ -118,7 +118,8 @@ export function StippleLogo({ src, name, play, onSettled }: { src: string; name:
 
   return (
     <div className={cn("kit-plate", plate === "dark" && "kit-plate-dark")}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit; next/image adds nothing here */}
+      {/* A small data: URL saved with the kit, so next/image adds nothing. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img ref={image} src={src} alt={`${name} logo`} className={cn("kit-logo", play && !settled && "kit-logo-waiting")} />
       <canvas ref={canvas} aria-hidden="true" className={cn("kit-stipple", (!play || settled) && "kit-stipple-gone")} />
     </div>

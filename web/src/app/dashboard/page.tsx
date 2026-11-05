@@ -41,7 +41,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       <header className="flex items-center gap-3">
         {/* Right beside the kit panel it would give away the logo the panel is about to form. */}
         {kit?.data?.logo && !kitOnTop ? (
-          // eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit; next/image adds nothing here
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={kit.data.logo} alt="" width={44} height={44} className="size-11 shrink-0 rounded-[8px] border border-border bg-[var(--paper-50)] object-contain p-1.5" />
         ) : null}
         <div className="min-w-0">

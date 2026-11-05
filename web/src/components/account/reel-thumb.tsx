@@ -37,7 +37,8 @@ export function ReelThumb({ reelId, hasPoster, scrub = false, className }: { ree
       onPointerLeave={scrub ? () => tile(0) : undefined}
     >
       {source === "poster" ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a filmstrip moved by transform inside its clip; next/image can't crop like that
+        // A filmstrip moved by transform inside its clip, which next/image can't do.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           ref={strip}
           src={`/api/reels/${reelId}/poster`}
