@@ -86,6 +86,21 @@ export function boxAt(span: Span, t: number): Box {
 
 export const inSpan = (span: { t_start: number; t_end: number }, t: number) => t >= span.t_start && t < span.t_end;
 
+/** The motion track in SceneData has one value per this many seconds. */
+export const MOTION_STEP_S = 0.25;
+
+/** Instagram's UI covers everything outside this part of a 9:16 frame: top 10%, bottom 22%, right 14%. */
+export const CLEAR_OF_UI = { x0: 0, y0: 0.1, x1: 0.86, y1: 0.78 };
+
+/** The share of a box that sits under Instagram's UI, 0 to 1. Box is [x, y, w, h] in fractions of the frame. */
+export function underUiShare([x, y, w, h]: Box): number {
+  const inside = Math.max(0, Math.min(x + w, CLEAR_OF_UI.x1) - Math.max(x, CLEAR_OF_UI.x0)) * Math.max(0, Math.min(y + h, CLEAR_OF_UI.y1) - Math.max(y, CLEAR_OF_UI.y0));
+  return 1 - inside / (w * h || 1);
+}
+
+/** A box counts as colliding once a tenth of it is under the UI, not when one edge just grazes it. */
+export const collidesWithUi = (box: Box) => underUiShare(box) >= 0.1;
+
 /** The moment's first and last second, across all its spans. */
 export function extent(moment: Moment): { t_start: number; t_end: number } {
   return {

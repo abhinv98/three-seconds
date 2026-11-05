@@ -1,5 +1,7 @@
 import { decodeMaskToRaster, type SegmentationMask } from "@meta-sam/parser";
-import type { Box } from "@/lib/details";
+import { type Box, collidesWithUi, MOTION_STEP_S } from "@/lib/details";
+
+export { collidesWithUi, MOTION_STEP_S, underUiShare } from "@/lib/details";
 
 // SAM 3.1 tracks a few concepts through the whole Reel; this turns its raw output into what the Studio draws and
 // measures: the creator's outline and spine, tracked boxes, timeline lanes, and the numbers on the scorecard.
@@ -83,15 +85,12 @@ export interface WorkerScene {
   thinned?: Record<string, number>;
 }
 
-export const MOTION_STEP_S = 0.25;
 const HOOK_S = 3;
 const OUTLINE_POINTS = 48;
 const SPINE_POINTS = 12;
 const SPINE_ROWS = 24;
 const FLICKER_FRAMES = 3;
 const LOGO_MISSING_S = 2;
-/** Instagram's UI covers everything outside this part of a 9:16 frame: top 10%, bottom 22%, right 14%. */
-const CLEAR_OF_UI = { x0: 0, y0: 0.1, x1: 0.86, y1: 0.78 };
 /** Centroid and area change per second that counts as full motion. Fixed, so Reels can be compared. */
 const MOTION_FULL = 1;
 
@@ -510,15 +509,6 @@ function missingFrom(lane: Stretch[], duration: number): Stretch[] {
   }
   return out;
 }
-
-/** The share of a box that sits under Instagram's UI, 0 to 1. Box is [x, y, w, h] in fractions of the frame. */
-export function underUiShare([x, y, w, h]: Box): number {
-  const inside = Math.max(0, Math.min(x + w, CLEAR_OF_UI.x1) - Math.max(x, CLEAR_OF_UI.x0)) * Math.max(0, Math.min(y + h, CLEAR_OF_UI.y1) - Math.max(y, CLEAR_OF_UI.y0));
-  return 1 - inside / (w * h || 1);
-}
-
-/** A box counts as colliding once a tenth of it is under the UI, not when one edge just grazes it. */
-export const collidesWithUi = (box: Box) => underUiShare(box) >= 0.1;
 
 const collisionShare = (track: TrackFrame[]) => (track.length ? round(track.filter((f) => collidesWithUi(f.box)).length / track.length) : 0);
 
