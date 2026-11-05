@@ -35,3 +35,7 @@ Thumbs.db
 # reels used for testing, and rendered demo films
 /testreels/
 /brag-output*/
+
+# tool config and the agent notes next dev writes, not part of the project
+/.impeccable/
+/web/AGENTS.md
