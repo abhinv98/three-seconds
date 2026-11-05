@@ -105,8 +105,6 @@ export interface StudioProps {
   readOnly: boolean;
   shareToken?: string;
   back: { href: string; label: string };
-  /** Where the scene and the video come from, when not this Reel's own routes. */
-  urls?: { scene: string; video: string };
   /** The kit's product names, for finding them in the transcript. */
   products?: string[];
   /** Hidden for anyone but the brand that owns the folder, the only one who can answer. */
@@ -116,10 +114,10 @@ export interface StudioProps {
   banner?: string | null;
 }
 
-export function Studio({ reelId, details, job, report, brandFont, review, notes, done, readOnly, shareToken, back, urls, products, canReview = true, caption = null, banner = null }: StudioProps) {
+export function Studio({ reelId, details, job, report, brandFont, review, notes, done, readOnly, shareToken, back, products, canReview = true, caption = null, banner = null }: StudioProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [clock] = useState(createClock);
-  const sceneState = useScene(urls?.scene ?? `/api/reels/${reelId}/scene`);
+  const sceneState = useScene(`/api/reels/${reelId}/scene`);
   const { scene } = sceneState;
   const ix = useMemo(() => (scene ? indexScene(scene) : null), [scene]);
 
@@ -128,7 +126,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
   const frameW = details?.reel.width || report.video.width || scene?.width || 9;
   const frameH = details?.reel.height || report.video.height || scene?.height || 16;
   const filename = details?.reel.filename ?? report.video.filename;
-  const videoSrc = urls?.video ?? details?.reel.video[0]?.src ?? `/api/reels/${reelId}/video`;
+  const videoSrc = details?.reel.video[0]?.src ?? `/api/reels/${reelId}/video`;
   const needed = requiredHold(duration).seconds;
   const labelSpans = useMemo(() => report.tracks.filter((track) => track.kind === "disclosure_label").flatMap((track) => track.spans), [report]);
   const mentions = useMemo(() => brandMentions(report.transcript, brandWords(details?.brand.name ?? "", products ?? [])), [report, details, products]);

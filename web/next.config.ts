@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: (process.env.DEV_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
   // The dev badge would sit on the dashboard sidebar's Sign out button in the bottom-left corner.
   devIndicators: { position: "bottom-right" },
+  // Next starts one build worker per core otherwise, and each is a whole Node process. That is too many on an 8 GB laptop.
+  experimental: process.env.VERCEL ? {} : { cpus: 2 },
   turbopack: {
     root: monorepoRoot,
     rules: {
