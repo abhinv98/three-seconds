@@ -25,23 +25,28 @@ export function ReelsLibrary({ reels, brandView }: { reels: LibraryReel[]; brand
   const [query, setQuery] = useState(() => parseLibraryQuery(params));
   const [view, setView] = useState<"grid" | "list">(params.get("view") === "list" ? "list" : "grid");
 
-  // A link to this page (the rail, the palette) changes the URL without remounting, and then the URL wins. A change that
-  // came from update() below already matches the state, and comparing the live URL keeps fast typing from being undone.
+  // A link to this page (the rail, the palette) changes the URL without remounting, and then the URL wins. The router
+  // shows this component's own writes a little late, so while one is on its way an older URL isn't a link.
   const [seenParams, setSeenParams] = useState(params);
+  const [writing, setWriting] = useState(false);
   if (params !== seenParams) {
     setSeenParams(params);
-    if (window.location.search !== libraryUrl(query, view)) {
+    if (params.toString() === libraryUrl(query, view).slice(1)) {
+      setWriting(false);
+    } else if (!writing) {
       setQuery(parseLibraryQuery(params));
       setView(params.get("view") === "list" ? "list" : "grid");
     }
   }
 
-  const update =(next: Partial<LibraryQuery>, nextView = view) => {
+  const update = (next: Partial<LibraryQuery>, nextView = view) => {
     const merged = { ...query, ...next };
+    const url = libraryUrl(merged, nextView);
     setQuery(merged);
     setView(nextView);
+    if (url !== window.location.search) setWriting(true);
     // Into the URL with no server round trip, so Back from a Reel returns to this exact view.
-    window.history.replaceState(null, "", `${window.location.pathname}${libraryUrl(merged, nextView)}`);
+    window.history.replaceState(null, "", `${window.location.pathname}${url}`);
   };
 
   const shown = useMemo(() => filterReels(reels, query), [reels, query]);
