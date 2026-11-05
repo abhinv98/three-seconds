@@ -9,7 +9,7 @@ export interface LoopRange {
   end: number;
 }
 
-/** A browser can't play a video backwards, so J seeks back by this much, as fast as the frames decode. */
+/** A browser can't play a video backwards, so J seeks back by this much at a time. */
 const REVERSE_STEP_S = 0.1;
 const SPEEDS = [0.5, 1, 2];
 
@@ -168,6 +168,7 @@ export function useTransport(videoRef: RefObject<HTMLVideoElement | null>, clock
     reversing.current = true;
     const back = () => {
       if (!reversing.current) return;
+      const started = performance.now();
       const next = video.currentTime - REVERSE_STEP_S;
       if (next <= 0) {
         reversing.current = false;
@@ -177,7 +178,8 @@ export function useTransport(videoRef: RefObject<HTMLVideoElement | null>, clock
       }
       video.currentTime = next;
       clock.set(next);
-      video.addEventListener("seeked", back, { once: true });
+      // Decoding can outrun real time, and backwards at normal speed is what J promises.
+      video.addEventListener("seeked", () => setTimeout(back, Math.max(0, REVERSE_STEP_S * 1000 - (performance.now() - started))), { once: true });
     };
     back();
   }, [videoRef, clock]);

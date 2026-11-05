@@ -327,8 +327,11 @@ export function cameraAt(path: CameraPath, t: number): Box {
 
 // Logo marks
 
-/** Where a missing logo should go: under Instagram's top bar on the left, clear of everything it draws. */
-export const SAFE_CORNER: Box = [0.04, CLEAR_OF_UI.y0 + 0.015, 0.36, 0.05];
+/**
+ * Where a missing logo should go: the top right of what Instagram leaves clear. The disclosure label's place is the top
+ * left, and nothing else of Instagram's sits here.
+ */
+export const SAFE_CORNER: Box = [CLEAR_OF_UI.x1 - 0.02 - 0.36, CLEAR_OF_UI.y0 + 0.015, 0.36, 0.05];
 
 /**
  * The brand's logo where it could sit: beside the product and moving with it when the product is on screen, else in the
@@ -339,7 +342,7 @@ export function ghostLogoBox(product: Box | null, logoAspect: number, frameWidth
   const w = Math.min(0.3, h * logoAspect * (frameHeight / frameWidth));
   const gap = 0.025;
   const { x0, y0, x1, y1 } = CLEAR_OF_UI;
-  if (!product) return [SAFE_CORNER[0], SAFE_CORNER[1], w, h];
+  if (!product) return [SAFE_CORNER[0] + SAFE_CORNER[2] - w, SAFE_CORNER[1], w, h];
   const [px, py, pw, ph] = product;
   const right = px + pw + gap;
   const x = right + w <= x1 - 0.01 ? right : px - gap - w;
@@ -349,13 +352,13 @@ export function ghostLogoBox(product: Box | null, logoAspect: number, frameWidth
 // Timeline
 
 /**
- * x positions for markers at these times, in time order, kept minGap apart so numbers stay readable at low zoom, and
- * pulled back from the right edge if they pile up there.
+ * Centres for markers at these times, in time order, kept minGap apart so numbers stay readable at low zoom, inside the
+ * track at the left, and pulled back from the right edge if they pile up there.
  */
 export function placeMarkers(times: number[], pps: number, minGap: number, width: number): number[] {
   const xs: number[] = [];
   for (let i = 0; i < times.length; i++) {
-    const want = times[i] * pps;
+    const want = Math.max(times[i] * pps, minGap / 2);
     xs.push(i && xs[i - 1] + minGap > want ? xs[i - 1] + minGap : want);
   }
   for (let i = xs.length - 1; i >= 0; i--) {
@@ -419,9 +422,15 @@ export function brandMentions(transcript: TranscriptSegment[], words: string[]):
   const out: BrandMention[] = [];
   for (const segment of transcript) {
     const text = segment.text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, " ");
+    // Words of one name said in a row ("ray ban meta") are one mention, however the kit lists them.
+    const runs: [start: number, end: number][] = [];
     for (const match of text.matchAll(pattern)) {
-      const u = (match.index + match[0].length / 2) / (text.length || 1);
-      out.push({ t: lerp(segment.t_start, segment.t_end, u), t_start: segment.t_start, t_end: segment.t_end, word: match[0] });
+      const last = runs[runs.length - 1];
+      if (last && match.index - last[1] <= 1) last[1] = match.index + match[0].length;
+      else runs.push([match.index, match.index + match[0].length]);
+    }
+    for (const [start, end] of runs) {
+      out.push({ t: lerp(segment.t_start, segment.t_end, (start + end) / 2 / (text.length || 1)), t_start: segment.t_start, t_end: segment.t_end, word: text.slice(start, end) });
     }
   }
   return out;

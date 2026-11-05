@@ -256,7 +256,8 @@ describe("ghostLogoBox", () => {
 
   it("sits in the safe corner with no product", () => {
     const box = ghostLogoBox(null, 1, 540, 960);
-    expect(box.slice(0, 2)).toEqual(SAFE_CORNER.slice(0, 2));
+    expect(box[1]).toBe(SAFE_CORNER[1]);
+    expect(box[0] + box[2]).toBeCloseTo(SAFE_CORNER[0] + SAFE_CORNER[2], 9);
     expect(inClear(box)).toBe(true);
   });
 
@@ -280,7 +281,11 @@ describe("ghostLogoBox", () => {
 
 describe("placeMarkers", () => {
   it("leaves markers where they are when they fit", () => {
-    expect(placeMarkers([1, 5], 10, 18, 100)).toEqual([10, 50]);
+    expect(placeMarkers([2, 5], 10, 18, 100)).toEqual([20, 50]);
+  });
+
+  it("keeps a marker at the very start inside the track", () => {
+    expect(placeMarkers([0, 5], 10, 18, 100)).toEqual([9, 50]);
   });
 
   it("spreads markers that would overlap, in order", () => {
@@ -351,6 +356,11 @@ describe("brand words", () => {
     expect(hits[0].t).toBeGreaterThan(10);
     expect(hits[0].t).toBeLessThan(12);
     expect(hits[1].t_start).toBe(30);
+  });
+
+  it("counts words of one name said in a row as one mention", () => {
+    const hits = brandMentions([{ t_start: 36, t_end: 38, text: "with Ray-Ban Meta AI glasses", lang: "en" }], brandWords("Meta", ["Ray-Ban Meta glasses"]));
+    expect(hits.map((h) => h.word)).toEqual(["ray ban meta", "glasses"]);
   });
 
   it("finds Hindi the same way", () => {

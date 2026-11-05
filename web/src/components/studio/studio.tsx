@@ -151,6 +151,12 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
   const [optimisticReview, setOptimisticReview] = useOptimistic(review);
 
   const toggleLayer = useCallback((id: LayerId) => setLayers((known) => ({ ...known, [id]: !known[id] })), []);
+  const hasFixes = moments.some((m) => m.fix);
+  const noFixes = "This read has no fixes to show";
+  const setFixView = useCallback((view: "posted" | "ab" | "fixed") => {
+    setLayers((known) => ({ ...known, fixes: view !== "posted" }));
+    setWipe(view === "ab");
+  }, []);
 
   const chooseMoment = useCallback(
     (moment: Moment) => {
@@ -278,7 +284,17 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement;
-      if (target.closest?.("input:not([type=range]),textarea,select,[contenteditable],[role=menu],[role=dialog]")) return;
+      if (target.closest?.("input:not([type=range]),textarea,select,[contenteditable]")) return;
+      if (e.key === "?") {
+        setShowKeys((open) => !open);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Escape") {
+        setShowKeys(false);
+        return;
+      }
+      if (target.closest?.("[role=menu],[role=dialog]")) return;
       if (e.key === " " && target.closest?.("a,button,[role=tab],[role=slider]") && target.matches(":focus-visible")) return;
       if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && target.closest?.("input,[role=tab],[role=slider]")) return;
       switch (e.key) {
@@ -317,12 +333,6 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
           if (stop !== null) seek(stop);
           break;
         }
-        case "?":
-          setShowKeys((open) => !open);
-          break;
-        case "Escape":
-          setShowKeys(false);
-          return;
         default:
           return;
       }
@@ -332,7 +342,8 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
     return () => window.removeEventListener("keydown", onKey);
   }, [transport, clock, stops, seek]);
 
-  const sceneStatusNode = <SceneChip state={sceneState} reelId={reelId} />;
+  const clearRange = useCallback(() => setRange({ in: null, out: null }), []);
+  const sceneStatusNode = <SceneChip state={sceneState} />;
 
   return (
     <div className="studio" data-theme="dark">
@@ -359,24 +370,14 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
               <div className="st-mon-bar">
                 <span className="st-panel-name">Program</span>
                 <div className="st-seg" role="group" aria-label="What the monitor shows">
-                  <button
-                    type="button"
-                    aria-pressed={!wipe}
-                    onClick={() => setWipe(false)}
-                  >
+                  <button type="button" aria-pressed={!layers.fixes} onClick={() => setFixView("posted")}>
                     As posted
                   </button>
-                  <button
-                    type="button"
-                    aria-pressed={wipe}
-                    disabled={!moments.some((m) => m.fix)}
-                    title={moments.some((m) => m.fix) ? "Wipe between the Reel as posted and with its fixes" : "This read has no fixes to show"}
-                    onClick={() => {
-                      setWipe(true);
-                      setLayers((known) => ({ ...known, fixes: true }));
-                    }}
-                  >
-                    A/B with fixes
+                  <button type="button" aria-pressed={layers.fixes && wipe} disabled={!hasFixes} title={hasFixes ? "Wipe between the Reel as posted and with its fixes" : noFixes} onClick={() => setFixView("ab")}>
+                    A/B
+                  </button>
+                  <button type="button" aria-pressed={layers.fixes && !wipe} disabled={!hasFixes} title={hasFixes ? undefined : noFixes} onClick={() => setFixView("fixed")}>
+                    With fixes
                   </button>
                 </div>
                 <div className="st-seg" role="group" aria-label="Auto-reframe preview">
@@ -413,7 +414,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
                 scaleUp={scaleUp}
                 onToggle={transport.toggle}
               />
-              <TransportBar transport={transport} clock={clock} duration={duration} selected={selected?.moment ?? null} onLoop={cycleLoop} range={range} onClearRange={() => setRange({ in: null, out: null })} onNote={addNote} readOnly={readOnly} />
+              <TransportBar transport={transport} clock={clock} duration={duration} selected={selected?.moment ?? null} onLoop={cycleLoop} onNote={addNote} readOnly={readOnly} />
             </div>
             <InspectorPanel ix={ix} report={report} clock={clock} sceneStatus={sceneState.status} needed={needed} />
           </div>
@@ -432,6 +433,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
             hot={hot}
             onHot={setHot}
             range={range}
+            onClearRange={clearRange}
             loop={loop}
             status={sceneStatusNode}
           />
@@ -478,7 +480,7 @@ function saveBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function SceneChip({ state, reelId }: { state: SceneState; reelId: string }) {
+function SceneChip({ state }: { state: SceneState }) {
   const seconds = useElapsed(state.status === "reading" ? state.since : null);
   if (state.status === "reading") {
     return (
@@ -492,7 +494,7 @@ function SceneChip({ state, reelId }: { state: SceneState; reelId: string }) {
   if (state.status === "done" && state.scene) {
     const { scene } = state;
     return (
-      <span className="st-scene-chip st-scene-done" title={`Reel ${reelId}`}>
+      <span className="st-scene-chip st-scene-done">
         SAM 3.1 at {scene.fps} fps
         {scene.failed.length ? `. Couldn't track: ${scene.failed.join(", ")}` : ""}
       </span>
@@ -720,6 +722,7 @@ const LayersPanel = memo(function LayersPanel({
           );
         })}
       </ul>
+      <p className="st-layers-foot">A filled square means it&rsquo;s in this frame.</p>
     </section>
   );
 });
@@ -790,8 +793,6 @@ function TransportBar({
   duration,
   selected,
   onLoop,
-  range,
-  onClearRange,
   onNote,
   readOnly,
 }: {
@@ -800,8 +801,6 @@ function TransportBar({
   duration: number;
   selected: Moment | null;
   onLoop: () => void;
-  range: { in: number | null; out: number | null };
-  onClearRange: () => void;
   onNote: (t: number, text: string) => void;
   readOnly: boolean;
 }) {
@@ -841,16 +840,6 @@ function TransportBar({
         <span className="st-time-total">/ {frameTimecode(duration)}</span>
       </p>
       <div className="st-tp-group st-tp-right">
-        {range.in !== null || range.out !== null ? (
-          <span className="st-range">
-            {range.in !== null ? `In ${formatTimecode(range.in)}` : ""}
-            {range.in !== null && range.out !== null ? "  " : ""}
-            {range.out !== null ? `Out ${formatTimecode(range.out)}` : ""}
-            <button type="button" className="st-tool" aria-label="Clear the range" onClick={onClearRange}>
-              <X size={12} aria-hidden="true" />
-            </button>
-          </span>
-        ) : null}
         <div className="st-seg" role="group" aria-label="Speed">
           {[0.5, 1, 2].map((value) => (
             <button key={value} type="button" aria-pressed={speed === value} onClick={() => setSpeed(value)}>
@@ -939,12 +928,12 @@ const KEYS: [string, string][] = [
 function KeysOverlay({ onClose }: { onClose: () => void }) {
   return (
     <div className="st-keys-scrim" onClick={onClose}>
-      <div role="dialog" aria-label="Keyboard shortcuts" className="st-keys" onClick={(e) => e.stopPropagation()}>
+      <div ref={(el) => el?.focus()} tabIndex={-1} role="dialog" aria-label="Keyboard shortcuts" className="st-keys" onClick={(e) => e.stopPropagation()}>
         <div className="st-panel-head">
           <span className="st-panel-name">
             <Keyboard size={13} aria-hidden="true" /> Keys
           </span>
-          <button type="button" className="st-tool" aria-label="Close" autoFocus onClick={onClose}>
+          <button type="button" className="st-tool" aria-label="Close" onClick={onClose}>
             <X size={14} aria-hidden="true" />
           </button>
         </div>

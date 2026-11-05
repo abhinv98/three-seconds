@@ -40,14 +40,15 @@ export interface OverlayInput {
   mono: string;
 }
 
+/** A small filled label, kept inside the frame. A negative x counts from the right edge. */
 function tag(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, bg: string, fg: string, maxWidth: number, mono: string) {
   ctx.font = `600 10px ${mono}`;
   let label = text;
-  while (label.length > 3 && ctx.measureText(label).width + 10 > maxWidth) label = label.slice(0, -2);
+  while (label.length > 3 && ctx.measureText(label).width + 10 > maxWidth - 4) label = label.slice(0, -2);
   if (label !== text) label = `${label.trimEnd()}...`;
   const w = ctx.measureText(label).width + 10;
   const h = 15;
-  const left = Math.max(2, Math.min(x, maxWidth - w - 2));
+  const left = x < 0 ? maxWidth - w + x : Math.max(2, Math.min(x, maxWidth - w - 2));
   ctx.fillStyle = bg;
   ctx.beginPath();
   ctx.roundRect(left, y, w, h, 2);
@@ -146,7 +147,7 @@ function drawSafeZones(ctx: CanvasRenderingContext2D, { width: w, height: h, dpr
       ctx.fillStyle = pattern;
       ctx.fillRect(x, y, zw, zh);
     }
-    if (name) tag(ctx, name, x + 6, y + zh - 21, "rgba(10,10,10,0.72)", "#f3f1ea", w, mono);
+    if (name) tag(ctx, name, y ? 6 : -6, y ? y + zh - 21 : 8, "rgba(10,10,10,0.72)", "#f3f1ea", w, mono);
   }
   ctx.save();
   ctx.setLineDash([3, 3]);

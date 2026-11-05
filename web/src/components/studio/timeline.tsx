@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, EyeOff, Maximize2, Minus, Plus } from "lucide-react";
+import { Eye, EyeOff, Maximize2, Minus, Plus, X } from "lucide-react";
 import { memo, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { extent, type Moment, MOTION_STEP_S } from "@/lib/details";
 import { formatRange, formatTimecode } from "@/lib/format";
@@ -55,16 +55,18 @@ export interface StudioTimelineProps {
   hot: string | null;
   onHot: (id: string | null) => void;
   range: { in: number | null; out: number | null };
+  onClearRange: () => void;
   loop: { start: number; end: number } | null;
   status: ReactNode;
 }
 
-export const StudioTimeline = memo(function StudioTimeline({ duration, scene, report, needed, mentions, moments, notes, clock, onSeek, onMoment, selected, hot, onHot, range, loop, status }: StudioTimelineProps) {
+export const StudioTimeline = memo(function StudioTimeline({ duration, scene, report, needed, mentions, moments, notes, clock, onSeek, onMoment, selected, hot, onHot, range, onClearRange, loop, status }: StudioTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const flagRef = useRef<HTMLSpanElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
+  const hoverTimeRef = useRef<HTMLSpanElement>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
   const canvases = useRef<Partial<Record<TrackId | "ruler", HTMLCanvasElement | null>>>({});
   const [viewW, setViewW] = useState(0);
@@ -263,6 +265,16 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
       <div className="st-tl-bar">
         <span className="st-panel-name">Timeline</span>
         {status}
+        {rangeIn !== null || rangeOut !== null ? (
+          <span className="st-range">
+            {rangeIn !== null ? `In ${formatTimecode(rangeIn)}` : ""}
+            {rangeIn !== null && rangeOut !== null ? "  " : ""}
+            {rangeOut !== null ? `Out ${formatTimecode(rangeOut)}` : ""}
+            <button type="button" className="st-tool" aria-label="Clear the range" onClick={onClearRange}>
+              <X size={12} aria-hidden="true" />
+            </button>
+          </span>
+        ) : null}
         <span ref={readoutRef} className="st-tl-readout" aria-hidden="true" />
         <div className="st-tl-zoom">
           <button type="button" className="st-tool" aria-label="Zoom out" onClick={() => applyZoom(zoom / 1.5)}>
@@ -282,7 +294,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
           <button type="button" className="st-tool" aria-label="Zoom in" onClick={() => applyZoom(zoom * 1.5)}>
             <Plus size={14} aria-hidden="true" />
           </button>
-          <button type="button" className="st-tool" aria-label="Fit the whole Reel" disabled={zoom === 1} onClick={() => setZoom(1)}>
+          <button type="button" className="st-tool" aria-label="Fit the whole Reel" disabled={zoom === 1} onClick={() => applyZoom(1)}>
             <Maximize2 size={13} aria-hidden="true" />
           </button>
         </div>
@@ -324,7 +336,12 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
             const t = timeAt(e.clientX);
             hoverRef.current.style.transform = `translate3d(${t * pps}px, 0, 0)`;
             hoverRef.current.style.opacity = "1";
-            if (readoutRef.current) readoutRef.current.textContent = `${formatTimecode(t)}  ${describeTime(t, scene, report.transcript)}`;
+            if (hoverTimeRef.current) {
+              hoverTimeRef.current.textContent = formatTimecode(t);
+              // Near the right edge the readout sits on the line's other side.
+              hoverTimeRef.current.dataset.flip = t * pps - e.currentTarget.scrollLeft > viewW - 52 ? "1" : "";
+            }
+            if (readoutRef.current) readoutRef.current.textContent = describeTime(t, scene, report.transcript);
           }}
           onPointerUp={() => {
             dragging.current = false;
@@ -372,7 +389,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
               ))}
             </div>
 
-            {range.in !== null || range.out !== null ? (
+            {rangeIn !== null || rangeOut !== null ? (
               <div
                 className="st-tl-range"
                 style={{
@@ -411,7 +428,9 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
               </div>
             ) : null}
 
-            <div ref={hoverRef} className="st-tl-hover" style={{ height: tracksHeight }} aria-hidden="true" />
+            <div ref={hoverRef} className="st-tl-hover" style={{ height: tracksHeight }} aria-hidden="true">
+              <span ref={hoverTimeRef} className="st-tl-hover-time" />
+            </div>
             <div ref={playheadRef} className="st-playhead" style={{ height: tracksHeight }} aria-hidden="true">
               <span ref={flagRef} className="st-flag">
                 00:00:00

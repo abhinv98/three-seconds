@@ -341,7 +341,7 @@ function ImproveTab({ reelId, details, job, scene, sceneStatus, notes, done, rea
   const brand = details?.brand.name ?? "the brand";
   return (
     <div className="st-panel-scroll">
-      {job.status === "reading" && !details ? <ReadingState since={job.started_at} /> : null}
+      {job.status === "reading" ? <ReadingState since={job.started_at} /> : null}
       {job.status === "error" ? (
         <section className="st-state">
           <Notice tone="fail">The read didn&rsquo;t finish: {job.error ?? "no reason given."}</Notice>
@@ -518,7 +518,8 @@ function measuredLines(scene: SceneData): MeasuredLine[] {
 function BrandTab({ reelId, details, report, scene, sceneStatus, sceneError, sceneSince, mentions, readOnly, caption, onSeek }: SideProps) {
   const seconds = useElapsed(sceneStatus === "reading" ? sceneSince : null);
   const lines = useMemo(() => (scene ? measuredLines(scene) : []), [scene]);
-  const said = mentions;
+  // One chip for each line it's said in: a chip seeks to the start of the line.
+  const said = useMemo(() => [...new Map(mentions.map((m) => [m.t_start, m])).values()], [mentions]);
   const brandName = details?.brand.name ?? report.tracks.find((track) => track.kind === "brand")?.label ?? "The brand";
   return (
     <div className="st-panel-scroll">
@@ -552,7 +553,7 @@ function BrandTab({ reelId, details, report, scene, sceneStatus, sceneError, sce
                 said.length ? (
                   <span className="st-said">
                     {said.slice(0, 12).map((m) => (
-                      <TimecodeChip key={`${m.t}-${m.word}`} t={m.t_start} label={`"${m.word}" said here`} onSeek={onSeek} inline />
+                      <TimecodeChip key={m.t_start} t={m.t_start} label={`"${m.word}" said here`} onSeek={onSeek} inline />
                     ))}
                     {said.length > 12 ? <span className="st-muted">and {said.length - 12} more</span> : null}
                   </span>

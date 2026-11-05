@@ -1,4 +1,5 @@
-import { formatTimecode } from "@/lib/format";
+import { formatHold } from "@/lib/asci";
+import { formatSeconds, formatTimecode } from "@/lib/format";
 import type { TranscriptSegment } from "@/lib/report";
 import type { SceneData, Stretch } from "@/lib/scene";
 import { type BrandMention, clamp, holdBracket, shotOf } from "./geometry";
@@ -123,8 +124,9 @@ export function drawLabel(ctx: CanvasRenderingContext2D, v: TrackView, spans: St
   const a = x(hold.t_start, v);
   const b = x(hold.t_end, v);
   bands(ctx, v, spans, "#7fe0c3", 2, 7);
-  // The bracket: the hold ASCI needs, laid from where the longest stretch starts.
+  // The bracket: the hold ASCI needs, laid from where the longest stretch starts, and what's short of it hatched.
   const color = hold.met ? "#7fe0c3" : "#f2bd45";
+  if (!hold.met) hatched(ctx, { ...v, height: v.height - 5 }, [{ t_start: hold.t_start + hold.held, t_end: hold.t_end }], "rgba(255,61,82,0.5)", "rgba(255,61,82,0.08)");
   ctx.fillStyle = color;
   const y = v.height - 4;
   ctx.fillRect(a, y, Math.max(1, b - a), 1);
@@ -132,13 +134,13 @@ export function drawLabel(ctx: CanvasRenderingContext2D, v: TrackView, spans: St
   ctx.fillRect(b - 1, y - 3, 1, 4);
   ctx.font = `500 9px ${v.mono}`;
   ctx.textBaseline = "middle";
-  const text = `Needs ${needed.toFixed(1)}s, held ${hold.held.toFixed(1)}s`;
+  const text = `Needs ${formatHold(needed)}, held ${formatSeconds(hold.held)}`;
   const width = ctx.measureText(text).width;
   // After what's held, in the part of the bracket still empty; past the bracket if that won't fit.
   const inside = Math.max(0, x(hold.t_start + hold.held, v)) + 4;
-  const textX = b - inside > width + 4 ? inside : b + 4;
+  if (b <= 0) return;
   ctx.fillStyle = color;
-  ctx.fillText(text, textX, y / 2 + 0.5);
+  ctx.fillText(text, b - inside > width + 4 ? inside : b + 4, y / 2 + 0.5);
 }
 
 export function drawProduct(ctx: CanvasRenderingContext2D, v: TrackView, lanes: SceneData["lanes"]) {

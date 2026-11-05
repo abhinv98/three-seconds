@@ -9,6 +9,8 @@ const FIXTURE = "/private/tmp/claude-501/-Users-sheeshtem-three-seconds/88c473e3
 
 export const metadata = { title: "Studio harness" };
 
+const fixtureStart = () => new Date(Date.now() - 41_000).toISOString();
+
 // Development only. The Studio on the test Reel, with real SceneData and a hand-written read, and every state it has:
 // ?scene=tracking|none|failed  ?read=reading|error  ?moments=none  ?readOnly=1
 export default async function StudioDev({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -25,7 +27,7 @@ export default async function StudioDev({ searchParams }: { searchParams: Promis
         job={{
           status: read === "reading" ? "reading" : read === "error" ? "error" : "done",
           error: read === "error" ? "The model didn't answer." : null,
-          started_at: new Date(Date.now() - 41_000).toISOString(),
+          started_at: fixtureStart(),
         }}
         report={report}
         brandFont="Inter, sans-serif"
