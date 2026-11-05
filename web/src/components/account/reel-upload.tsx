@@ -4,6 +4,7 @@ import { upload } from "@vercel/blob/client";
 import { Check, Loader, TriangleAlert, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { Tick } from "@/components/landing/tick";
 import { Button } from "@/components/ui/button";
 import { blobPathname, checkFile } from "@/components/upload-flow";
 import { formatBytes, formatSeconds, formatTimecode } from "@/lib/format";
@@ -23,6 +24,9 @@ const MIN_MS_PER_FRAME = 40;
 /** How long the check waits for the poster once the upload has finished. A slow decode shouldn't hold up the report. */
 const POSTER_WAIT_MS = 8000;
 const SEEK_TIMEOUT_MS = 4000;
+/** "Report ready" stays up this long, so it can be read before the report takes over. */
+const READY_BEAT_MS = 450;
+const HANDOVER_LIMIT_MS = 3000;
 
 interface Meta {
   duration: number;
@@ -209,6 +213,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
   const serverClock = useRef<HTMLSpanElement>(null);
   const frameChip = useRef<HTMLSpanElement>(null);
   const uploadAbort = useRef<AbortController | null>(null);
+  const arrived = useRef<(() => void) | null>(null);
 
   const [meta, setMeta] = useState<Meta | null>(null);
   const [frames, setFrames] = useState({ pulled: 0, total: 0, done: false, failed: false });
@@ -408,7 +413,22 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
         window.clearInterval(clockTimer);
         setFinished(true);
         router.prefetch(href);
-        startNavigation(() => router.push(href));
+        await sleep(READY_BEAT_MS);
+        if (signal.aborted) return;
+        const go = () => startNavigation(() => router.push(href));
+        // A cross-fade held until the report page has really arrived, however long that takes. Without the API, a plain cut.
+        if (typeof document.startViewTransition === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document.startViewTransition(
+            () =>
+              new Promise<void>((resolve) => {
+                arrived.current = resolve;
+                setTimeout(resolve, HANDOVER_LIMIT_MS);
+                go();
+              }),
+          );
+        } else {
+          go();
+        }
       } else {
         setFailure({ step: "check", message: body?.error ?? (response ? `The check failed (HTTP ${response.status}).` : "The check stopped. Check your connection and try again.") });
         window.clearInterval(clockTimer);
@@ -421,6 +441,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       window.clearTimeout(begin);
       window.clearInterval(clockTimer);
       stopped.abort();
+      arrived.current?.();
       el.pause();
       el.removeAttribute("src");
       el.load();
@@ -434,7 +455,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
   const checkStep = failure?.step === "check" ? "fail" : finished ? "done" : checkStarted ? "active" : "waiting";
 
   return (
-    <section aria-label={`Checking ${file.name}`} className={cn("check-stage", finished && "check-stage-handover")} aria-busy={!finished && !failure}>
+    <section aria-label={`Checking ${file.name}`} className="check-stage" aria-busy={!finished && !failure}>
       <header className="check-top">
         <p className="min-w-0 truncate font-mono text-[13px] text-[var(--paper-100)]">{file.name}</p>
         <p className="hidden min-w-0 truncate font-mono text-[12px] text-[var(--stone-400)] sm:block">
@@ -519,6 +540,9 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
               <span>Then plain rules time the label against ASCI&rsquo;s clauses.</span>
             </span>
           )}
+          <span aria-hidden="true" className="absolute top-1/2 right-3 hidden -translate-y-1/2 lg:block [&_canvas]:[image-rendering:pixelated]">
+            <Tick size={56} mood={checkStarted && !finished ? "read" : "count"} lcd={sent.done ? "3s" : String(Math.round(sent.share * 100))} outlined />
+          </span>
         </Step>
       </ol>
 

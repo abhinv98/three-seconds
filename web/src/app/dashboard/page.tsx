@@ -39,7 +39,8 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {typeof query.error === "string" ? <Notice tone="fail">{query.error}</Notice> : null}
       <header className="flex items-center gap-3">
-        {kit?.data?.logo ? (
+        {/* Right beside the kit panel it would give away the logo the panel is about to form. */}
+        {kit?.data?.logo && !kitOnTop ? (
           // eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit; next/image adds nothing here
           <img src={kit.data.logo} alt="" width={44} height={44} className="size-11 shrink-0 rounded-[8px] border border-border bg-[var(--paper-50)] object-contain p-1.5" />
         ) : null}
@@ -232,7 +233,7 @@ function NextStep({ viewer }: { viewer: Member }) {
       </span>
       <div className="min-w-0 flex-1">
         <h2 id="next-step" className="text-[24px] leading-tight font-bold tracking-[-0.02em]">
-          {brand ? "Check your first Reel" : "Check your first Reel"}
+          Check your first Reel
         </h2>
         <p className="mt-1.5 max-w-[56ch] text-[15px] text-background/75">
           {brand

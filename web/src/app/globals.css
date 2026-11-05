@@ -372,10 +372,6 @@
   outline: 3px solid var(--signal-500);
   outline-offset: -3px;
 }
-.check-stage-handover {
-  opacity: 0;
-  transition-delay: 240ms;
-}
 .check-top {
   display: flex;
   align-items: center;
@@ -571,6 +567,10 @@
   .check-step + .check-step {
     border-top: 0;
     border-left: 1px solid rgb(243 241 234 / 0.12);
+  }
+  /* Room for Mr Tickle, who sits in this cell. */
+  .check-step:last-child {
+    padding-right: 80px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

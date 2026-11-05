@@ -34,7 +34,7 @@ const useShortcut = () =>
     () => "⌘K",
   );
 
-// The Studio takes the whole window.
+// The Studio takes the whole window, and shows the sample's label itself.
 const FULL_WINDOW = /^\/dashboard\/reels\/[^/]+\/details/;
 
 interface ShellProps {
@@ -60,17 +60,8 @@ export function DashboardShell({ role, name, email, folder, site, banner, childr
     router.refresh();
   }
 
-  const strip = banner ? <p className="bg-foreground px-4 py-2 text-[13px] font-semibold text-background sm:px-6 lg:px-8">{banner}</p> : null;
-
   if (FULL_WINDOW.test(pathname)) {
-    return (
-      <div className="min-h-dvh bg-background">
-        {strip}
-        <main id="main" className="min-w-0">
-          {children}
-        </main>
-      </div>
-    );
+    return <main id="main">{children}</main>;
   }
 
   return (
@@ -140,7 +131,7 @@ export function DashboardShell({ role, name, email, folder, site, banner, childr
       </aside>
 
       <div className="min-w-0 pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0">
-        {strip}
+        {banner ? <p className="bg-foreground px-4 py-2 text-[13px] font-semibold text-background sm:px-6 lg:px-8">{banner}</p> : null}
         <main id="main" className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
           {children}
         </main>

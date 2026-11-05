@@ -35,13 +35,15 @@ function playStamp(root: HTMLElement, revealKey: string) {
 
   const stamp = root.querySelector<HTMLElement>("[data-stamp]");
   const ghost = root.querySelector<HTMLElement>("[data-stamp-ghost]");
-  const landed = 150 + 210;
+  // A beat first: coming from the check screen, the cross-fade to this page takes about 250 ms.
+  const delay = 270;
+  const landed = delay + 210;
   stamp?.animate(
     [
       { opacity: 0, transform: "rotate(-11deg) scale(2.1)" },
       { opacity: 1, transform: "rotate(-3deg) scale(1)" },
     ],
-    { duration: 210, delay: 150, easing: FALLING, fill: "backwards" },
+    { duration: 210, delay, easing: FALLING, fill: "backwards" },
   );
   ghost?.animate(
     [
