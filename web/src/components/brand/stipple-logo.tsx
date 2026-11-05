@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const SOURCE = 180;
 const RELAX_FRAMES = 44;
-const TOTAL_FRAMES = 112;
+const TOTAL_FRAMES = 132;
 
 /** The logo's pixels on a square, with a little room around them. */
 function logoPixels(img: HTMLImageElement): Uint8ClampedArray {

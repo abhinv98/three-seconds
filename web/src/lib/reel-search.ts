@@ -29,6 +29,7 @@ export interface LibraryReel extends ReelHit {
   created_at: string;
   sent_at: string | null;
   review: "approved" | "changes" | null;
+  hasPoster: boolean;
 }
 
 export type StateFilter = "approved" | "changes" | "waiting" | "";

@@ -11,6 +11,7 @@ const reel = (over: Partial<LibraryReel>): LibraryReel => ({
   created_at: "2026-11-01T00:00:00Z",
   sent_at: null,
   review: null,
+  hasPoster: true,
   ...over,
 });
 

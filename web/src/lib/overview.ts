@@ -22,12 +22,13 @@ export interface OverviewReel {
   /** JSON arrays of the titles of the checks that failed, and that need a person. */
   failed: string | null;
   reviewing: string | null;
+  has_poster: number;
 }
 
 export function overviewReels(viewer: Member): Promise<OverviewReel[]> {
   const { where, args } = reelScope(viewer);
   return all<OverviewReel>(
-    `SELECT r.id, r.filename, r.status, r.verdict, r.owner_id, p.display_name AS owner_name, b.name AS brand_name, r.sent_at, r.created_at,
+    `SELECT r.id, r.filename, r.status, r.verdict, r.owner_id, p.display_name AS owner_name, b.name AS brand_name, r.sent_at, r.created_at, r.poster IS NOT NULL AS has_poster,
             json_extract(r.report, '$.video.duration_s') AS duration_s,
             (SELECT json_extract(t.value, '$.longest_continuous_s') FROM json_each(r.report, '$.tracks') t
               WHERE json_extract(t.value, '$.kind') = 'disclosure_label' LIMIT 1) AS hold_s,
@@ -165,6 +166,6 @@ export function summarize(reels: OverviewReel[], reviews: Map<string, ReelReview
     watch: [...creators.values()].filter((c) => c.fails > 0).sort((a, b) => b.fails - a.fails || a.name.localeCompare(b.name)),
     trend,
     queue,
-    activity: activity.slice(0, 8),
+    activity: activity.slice(0, 5),
   };
 }

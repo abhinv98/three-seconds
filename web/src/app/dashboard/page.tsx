@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BrandKitPanel } from "@/components/account/brand-kit-panel";
 import { CopyLink } from "@/components/account/copy-link";
 import { COUNTED_COOKIE, CountedOnce, CountUp } from "@/components/account/count-up";
-import { Notice, Panel, ReelStatus, when } from "@/components/account/bits";
+import { Notice, Panel, when } from "@/components/account/bits";
 import { ReelThumb } from "@/components/account/reel-thumb";
 import { WeeklyTrend } from "@/components/account/weekly-trend";
 import { Tick } from "@/components/landing/tick";
@@ -35,12 +35,16 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const kitPanel = brand ? <BrandKitPanel brandId={brand.id} job={kit} site={site} readOnly={readOnly !== null} /> : null;
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {typeof query.error === "string" ? <Notice tone="fail">{query.error}</Notice> : null}
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex items-center gap-3">
+        {kit?.data?.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit; next/image adds nothing here
+          <img src={kit.data.logo} alt="" width={44} height={44} className="size-11 shrink-0 rounded-[8px] border border-border bg-[var(--paper-50)] object-contain p-1.5" />
+        ) : null}
         <div className="min-w-0">
           <h1 className="truncate text-[26px] leading-tight font-bold tracking-[-0.03em]">{brand ? brand.name : `Hi, ${viewer.profile.display_name.split(" ")[0]}`}</h1>
-          <p className="truncate text-sm text-muted-foreground">{brand ? `${site} · brand folder` : "Check a Reel before it goes anywhere, then send the passing ones to your brands."}</p>
+          <p className="text-sm text-muted-foreground">{brand ? `${site} · brand folder` : "Check a Reel before it goes anywhere, then send the passing ones to your brands."}</p>
         </div>
       </header>
 
@@ -65,7 +69,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       )}
 
       {brand ? (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_372px]">
+        <div className={cn("grid items-start gap-5", !kitOnTop && "xl:grid-cols-[minmax(0,1fr)_372px]")}>
           {kitOnTop ? null : kitPanel}
           <CreatorsPanel brandId={brand.id} code={brand.invite_code} />
         </div>
@@ -79,7 +83,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
 function Kpis({ overview, animate, brandView, sent }: { overview: Overview; animate: boolean; brandView: boolean; sent: number }) {
   const { checked, checkedThisWeek, passed, reviewing, failed, passRate, hold, topFailure, watch } = overview;
   return (
-    <dl className="grid grid-cols-2 overflow-hidden rounded-[10px] border border-border bg-card md:grid-cols-3 xl:grid-cols-[1fr_1.1fr_1.1fr_1.5fr_1.3fr]">
+    <dl className="grid grid-cols-2 overflow-hidden rounded-[10px] border border-border bg-card md:grid-cols-3 xl:grid-cols-[1fr_1.1fr_1.1fr_1.5fr_1.3fr] [&>*:last-child]:col-span-2 md:[&>*:last-child]:col-span-1">
       <Kpi label="Reels checked" foot={`${checkedThisWeek} this week`}>
         <CountUp value={checked} animate={animate} />
       </Kpi>
@@ -172,7 +176,7 @@ function Queue({ items, brandView }: { items: QueueItem[]; brandView: boolean })
           {items.slice(0, 6).map(({ reel, tone, reason }) => (
             <li key={reel.id} className="border-b border-border last:border-0">
               <Link href={`/dashboard/reels/${reel.id}`} className="row-hover flex items-center gap-3 px-4 py-2 sm:gap-4 sm:px-5">
-                <ReelThumb reelId={reel.id} className="w-9 shrink-0 rounded-[4px]" />
+                <ReelThumb reelId={reel.id} hasPoster={Boolean(reel.has_poster)} className="w-8 shrink-0 rounded-[4px]" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{reel.filename}</span>
                   <span className="block truncate text-[13px] text-muted-foreground">{reason}</span>

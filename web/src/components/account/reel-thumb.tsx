@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils";
  * A Reel's 9:16 thumbnail. The poster is a filmstrip (lib/poster.ts): the first tile shows, and with scrub the pointer's
  * position picks the tile. A Reel from before posters shows a frame of its video instead.
  */
-export function ReelThumb({ reelId, scrub = false, className }: { reelId: string; scrub?: boolean; className?: string }) {
-  const [source, setSource] = useState<"poster" | "video" | "none">("poster");
+export function ReelThumb({ reelId, hasPoster, scrub = false, className }: { reelId: string; hasPoster: boolean; scrub?: boolean; className?: string }) {
+  const [source, setSource] = useState<"poster" | "video" | "none">(hasPoster ? "poster" : "video");
   const strip = useRef<HTMLImageElement>(null);
   const marker = useRef<HTMLSpanElement>(null);
 

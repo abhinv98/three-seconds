@@ -99,7 +99,7 @@ export class Stippler {
       this.targets[i * 2 + 1] = y;
       this.shown[i * 2] = rand() * size;
       this.shown[i * 2 + 1] = rand() * size;
-      this.speed[i] = 0.05 + rand() * 0.09;
+      this.speed[i] = 0.04 + rand() * 0.08;
     }
   }
 

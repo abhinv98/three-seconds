@@ -15,7 +15,7 @@ export default async function ReelsPage({ searchParams }: { searchParams: Promis
   const rows = await reelsFor(viewer);
   const reviews = await reviewsFor(rows.map((r) => r.id));
   const brand = viewer.brand !== null;
-  const reels: LibraryReel[] = rows.map(({ id, filename, owner_name, owner_id, verdict, status, created_at, sent_at }) => ({
+  const reels: LibraryReel[] = rows.map(({ id, filename, owner_name, owner_id, verdict, status, created_at, sent_at, has_poster }) => ({
     id,
     filename,
     owner_name,
@@ -25,6 +25,7 @@ export default async function ReelsPage({ searchParams }: { searchParams: Promis
     created_at,
     sent_at,
     review: reviews.get(id)?.status ?? null,
+    hasPoster: Boolean(has_poster),
   }));
   return (
     <div className="grid gap-5">

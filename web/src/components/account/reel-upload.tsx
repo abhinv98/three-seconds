@@ -128,7 +128,12 @@ function drawSlots(canvas: HTMLCanvasElement, count: number, width: number, heig
   const gridH = grid.rows * grid.tileH + (grid.rows - 1) * GAP;
   canvas.width = Math.round(gridW * dpr);
   canvas.height = Math.round(gridH * dpr);
-  canvas.style.aspectRatio = `${gridW} / ${gridH}`;
+  // The wrapper is the grid's exact size, so the marker and the scan line, placed in percent of it, land on the tiles.
+  const frame = canvas.parentElement;
+  if (frame) {
+    frame.style.width = `${gridW}px`;
+    frame.style.height = `${gridH}px`;
+  }
   const ctx = canvas.getContext("2d");
   if (ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -159,7 +164,9 @@ function GhostWall() {
   }, []);
   return (
     <div ref={box} className="check-wall" aria-hidden="true">
-      <canvas ref={canvas} className="check-wall-canvas" />
+      <div className="check-wall-frame">
+        <canvas ref={canvas} className="check-wall-canvas" />
+      </div>
     </div>
   );
 }
@@ -228,17 +235,20 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       if (serverStarted && serverClock.current) serverClock.current.textContent = formatTimecode((now - serverStarted) / 1000);
     }, 100);
 
-    const showTile = (i: number) => {
+    const showTile = (i: number, moveScan: boolean) => {
       if (!grid || !marker.current || !canvas.height) return;
       const [x, y] = tileAt(i, grid);
       const gridW = grid.cols * grid.tileW + (grid.cols - 1) * GAP;
       const gridH = grid.rows * grid.tileH + (grid.rows - 1) * GAP;
       marker.current.style.cssText = `left:${(x / gridW) * 100}%;top:${(y / gridH) * 100}%;width:${(grid.tileW / gridW) * 100}%;height:${(grid.tileH / gridH) * 100}%;opacity:1`;
-      if (scan.current) scan.current.style.transform = `translateY(${((y + grid.tileH) / gridH) * 100}%)`;
+      if (moveScan && scan.current) scan.current.style.transform = `translateY(${((y + grid.tileH) / gridH) * 100}%)`;
     };
 
-    /** Pulls every frame into the wall and returns the filmstrip poster, or null if the browser can't decode this file. */
-    async function pull(meta: Meta): Promise<string | null> {
+    /**
+     * Pulls every frame into the wall. The poster's frames come first, scattered over the wall: the check can then start
+     * with the poster in hand as soon as the upload is done, however long the rest of the wall takes.
+     */
+    async function pull(meta: Meta, posterReady: (poster: string | null) => void) {
       const v = el!;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const times = frameTimes(meta.duration);
@@ -250,11 +260,14 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       sprite.width = POSTER_TILE_W * POSTER_TILES;
       sprite.height = POSTER_TILE_H;
       const spriteCtx = sprite.getContext("2d");
-      const wanted = posterFrames(total, POSTER_TILES);
       if (!ctx || !spriteCtx) throw new Error("No canvas");
+      const wanted = posterFrames(total, POSTER_TILES);
+      const first = [...new Set(wanted)];
+      const order = [...first, ...times.map((_, i) => i).filter((i) => !first.includes(i))];
       let last = performance.now();
-      for (let i = 0; i < times.length; i++) {
-        if (signal.aborted) return null;
+      for (let n = 0; n < order.length; n++) {
+        if (signal.aborted) return;
+        const i = order[n];
         v.currentTime = times[i];
         await once(v, "seeked", signal, 8000);
         const [x, y] = tileAt(i, grid);
@@ -262,23 +275,22 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
         wanted.forEach((frame, tile) => {
           if (frame === i) drawCover(spriteCtx, v, tile * POSTER_TILE_W, 0, POSTER_TILE_W, POSTER_TILE_H);
         });
-        showTile(i);
+        if (n === first.length - 1) posterReady(sprite.toDataURL("image/jpeg", 0.62));
+        showTile(i, n >= first.length);
         if (frameChip.current) frameChip.current.textContent = formatTimecode(times[i]);
-        setFrames((f) => ({ ...f, pulled: i + 1 }));
+        setFrames((f) => ({ ...f, pulled: n + 1 }));
         const wait = MIN_MS_PER_FRAME - (performance.now() - last);
         if (wait > 0) await sleep(wait);
         await nextFrame();
         last = performance.now();
       }
       setFrames((f) => ({ ...f, done: true }));
-      return sprite.toDataURL("image/jpeg", 0.62);
     }
 
     /** With every frame pulled, the Reel plays on the monitor while the server works, and its frame stays lit on the wall. */
     function playOn() {
       const v = el!;
       if (signal.aborted) return;
-      if (marker.current) marker.current.style.opacity = "1";
       canvas!.parentElement?.setAttribute("data-sweeping", "");
       if (scan.current) scan.current.style.transform = "";
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -288,10 +300,16 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       v.addEventListener(
         "timeupdate",
         () => {
-          const i = Math.min(total - 1, Math.floor(v.currentTime * WALL_FPS));
-          showTile(i);
-          if (scan.current) scan.current.style.transform = "";
+          showTile(Math.min(total - 1, Math.floor(v.currentTime * WALL_FPS)), false);
           if (frameChip.current) frameChip.current.textContent = formatTimecode(v.currentTime);
+        },
+        { signal },
+      );
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (document.hidden) v.pause();
+          else void v.play().catch(() => {});
         },
         { signal },
       );
@@ -316,17 +334,23 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       }
       setMeta(readable);
 
-      const posterJob: Promise<string | null> = readable
-        ? pull(readable).catch((error) => {
-            if (!signal.aborted) {
-              console.warn("Frames stopped:", error);
-              setFrames((f) => ({ ...f, failed: true }));
-            }
-            return null;
+      let posterReady: (poster: string | null) => void = () => {};
+      const posterJob = new Promise<string | null>((resolve) => {
+        posterReady = resolve;
+      });
+      if (readable) {
+        void pull(readable, posterReady)
+          .then(playOn)
+          .catch((error) => {
+            if (signal.aborted) return;
+            console.warn("Frames stopped:", error);
+            setFrames((f) => ({ ...f, failed: true }));
           })
-        : Promise.resolve(null);
-      if (!readable) setFrames((f) => ({ ...f, failed: true }));
-      void posterJob.then(() => playOn());
+          .finally(() => posterReady(null));
+      } else {
+        posterReady(null);
+        setFrames((f) => ({ ...f, failed: true }));
+      }
 
       await sendAndCheck(posterJob);
     }
@@ -343,7 +367,8 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
           contentType: contentTypeFor(file) ?? undefined,
           multipart: file.size > 20 * 1024 * 1024,
           abortSignal: controller.signal,
-          onUploadProgress: ({ loaded, percentage }) => setSent({ loaded, share: percentage / 100, done: false }),
+          // Multipart parts report out of order, and a last event can land after the upload has finished.
+          onUploadProgress: ({ loaded, percentage }) => setSent((s) => (s.done ? s : { loaded: Math.max(s.loaded, loaded), share: Math.max(s.share, percentage / 100), done: false })),
         });
         blobUrl = blob.url;
       } catch (error) {
@@ -405,8 +430,23 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
           {meta ? `${meta.width}×${meta.height} · ${formatTimecode(meta.duration)} · ` : ""}
           {formatBytes(file.size)}
         </p>
-        <p className="ml-auto flex shrink-0 items-baseline gap-2 text-[var(--paper-100)]">
-          <span className="text-[12px] text-[var(--stone-400)]">Elapsed</span>
+        {!sent.done && !failure ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="compact-sm"
+            className="ml-auto"
+            onClick={() => {
+              uploadAbort.current?.abort();
+              onCancel();
+            }}
+          >
+            <X size={14} aria-hidden="true" />
+            Cancel
+          </Button>
+        ) : null}
+        <p className={cn("flex shrink-0 items-baseline gap-2 text-[var(--paper-100)]", (sent.done || failure) && "ml-auto")}>
+          <span className="hidden text-[12px] text-[var(--stone-400)] sm:inline">Elapsed</span>
           <span ref={clock} className="font-mono text-[20px] leading-none font-medium tabular-nums">
             00:00.0
           </span>
@@ -421,11 +461,13 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
           </span>
         </div>
         <div ref={wallBox} className="check-wall">
-          <canvas ref={wall} aria-hidden="true" className="check-wall-canvas" />
-          <span className="check-wall-overlay" aria-hidden="true">
-            <span ref={marker} className="check-marker" />
-            <span ref={scan} className="check-scan" />
-          </span>
+          <div className="check-wall-frame">
+            <canvas ref={wall} aria-hidden="true" className="check-wall-canvas" />
+            <span className="check-wall-overlay" aria-hidden="true">
+              <span ref={marker} className="check-marker" />
+              <span ref={scan} className="check-scan" />
+            </span>
+          </div>
           {frames.failed ? <p className="absolute inset-x-4 top-1/2 -translate-y-1/2 text-center text-sm text-[var(--stone-400)]">This browser can&rsquo;t preview this file. The check still runs.</p> : null}
         </div>
       </div>
@@ -441,7 +483,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
           Pulled in this browser, {WALL_FPS} a second. That&rsquo;s the rate the model reads.
         </Step>
         <Step number={2} state={uploadStep} title="Upload" right={failure?.step === "upload" ? null : `${Math.round(sent.share * 100)}%`} bar={sent.share}>
-          {failure?.step === "upload" ? failure.message : `${formatBytes(Math.max(sent.loaded, 1024))} of ${formatBytes(file.size)}`}
+          {failure?.step === "upload" ? failure.message : `${sent.loaded ? formatBytes(sent.loaded) : "Nothing yet"} of ${formatBytes(file.size)}`}
         </Step>
         <Step
           number={3}
@@ -469,31 +511,14 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
         </Step>
       </ol>
 
-      {failure || (!sent.done && !finished) ? (
+      {failure ? (
         <footer className="check-actions">
-          {failure ? (
-            <>
-              <Button type="button" size="compact" onClick={onRetry}>
-                Try again
-              </Button>
-              <Button type="button" variant="outline" size="compact" onClick={() => onCancel()}>
-                Choose another video
-              </Button>
-            </>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="compact"
-              onClick={() => {
-                uploadAbort.current?.abort();
-                onCancel();
-              }}
-            >
-              <X size={15} aria-hidden="true" />
-              Cancel
-            </Button>
-          )}
+          <Button type="button" size="compact" onClick={onRetry}>
+            Try again
+          </Button>
+          <Button type="button" variant="outline" size="compact" onClick={() => onCancel()}>
+            Choose another video
+          </Button>
         </footer>
       ) : null}
       <p className="sr-only" role="status">

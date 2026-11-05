@@ -250,10 +250,12 @@ export interface ReelRow {
   brand_name: string | null;
   /** The video in Vercel Blob; null for Reels checked before uploads moved there. */
   video_url: string | null;
+  /** 1 when the Reel has a filmstrip poster (lib/poster.ts). Reels from before posters show a frame of the video. */
+  has_poster: number;
 }
 
 const REEL_COLUMNS = `r.id, r.owner_id, r.brand_id, r.filename, r.size_bytes, r.status, r.verdict, r.error, r.sent_at, r.created_at,
-                      p.display_name AS owner_name, b.name AS brand_name, r.video_url`;
+                      p.display_name AS owner_name, b.name AS brand_name, r.video_url, r.poster IS NOT NULL AS has_poster`;
 const REEL_FROM = `FROM reel r JOIN profile p ON p.user_id = r.owner_id LEFT JOIN brand b ON b.id = r.brand_id`;
 
 /** A creator's own Reels; for a brand, its own checks plus every Reel a creator has sent it. */

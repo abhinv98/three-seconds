@@ -21,6 +21,7 @@ const reel = (over: Partial<Row>): Row => ({
   hold_s: 12,
   failed: "[]",
   reviewing: "[]",
+  has_poster: 1,
   ...over,
 });
 const brand = { id: "brand-owner", brandView: true };

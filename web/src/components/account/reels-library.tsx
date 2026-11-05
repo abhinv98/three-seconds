@@ -129,20 +129,17 @@ export function ReelsLibrary({ reels, brandView, initial, initialView }: { reels
           ) : null}
         </div>
       ) : view === "grid" ? (
-        <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
           {shown.map((reel) => (
             <li key={reel.id} className="min-w-0">
               <Link href={`/dashboard/reels/${reel.id}`} className="reel-card group block rounded-[8px]">
                 <div className="relative">
-                  <ReelThumb reelId={reel.id} scrub className="rounded-[8px]" />
-                  <span className="pointer-events-none absolute top-2 left-2">
+                  <ReelThumb reelId={reel.id} hasPoster={reel.hasPoster} scrub className="rounded-[8px]" />
+                  {/* At the bottom: the top left is where a Reel's own Paid partnership tag sits. */}
+                  <span className="pointer-events-none absolute right-2 bottom-2 left-2 flex flex-wrap gap-1">
                     <ReelStatus reel={reel} solid />
+                    {reel.review ? <ReviewBadge status={reel.review} className="bg-foreground text-background" /> : null}
                   </span>
-                  {reel.review ? (
-                    <span className="pointer-events-none absolute bottom-2 left-2">
-                      <ReviewBadge status={reel.review} className="bg-foreground text-background" />
-                    </span>
-                  ) : null}
                 </div>
                 <p className="mt-2 truncate text-sm font-semibold">{reel.filename}</p>
                 <p className="truncate text-[12.5px] text-muted-foreground">
@@ -158,7 +155,7 @@ export function ReelsLibrary({ reels, brandView, initial, initialView }: { reels
           {shown.map((reel) => (
             <li key={reel.id} className="border-b border-border last:border-0">
               <Link href={`/dashboard/reels/${reel.id}`} className="row-hover flex items-center gap-3 px-3 py-2 sm:gap-4 sm:px-4">
-                <ReelThumb reelId={reel.id} scrub className="w-9 shrink-0 rounded-[4px]" />
+                <ReelThumb reelId={reel.id} hasPoster={reel.hasPoster} scrub className="w-9 shrink-0 rounded-[4px]" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{reel.filename}</span>
                   <span className="block truncate text-[12.5px] text-muted-foreground md:hidden">

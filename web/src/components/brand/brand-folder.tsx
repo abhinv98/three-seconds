@@ -114,7 +114,7 @@ function Reading({ site, startedAt, initialSteps }: { site: string; startedAt: s
 export function ReadingBody({ site, steps, clock }: { site: string; steps: KitStep[]; clock?: React.Ref<HTMLSpanElement> }) {
   const shown = steps.length ? steps : [{ s: 0, text: `Starting on ${site}` }];
   return (
-    <div className="grid gap-5 p-5 @2xl:grid-cols-[208px_minmax(0,1fr)] @2xl:gap-6">
+    <div className="grid gap-5 p-5 @xl:grid-cols-[208px_minmax(0,1fr)] @xl:gap-6">
       <div className="kit-plate kit-plate-waiting" aria-hidden="true">
         <span className="px-3 text-center font-mono text-[12px] break-all text-muted-foreground">{site}</span>
       </div>
@@ -189,7 +189,7 @@ function KitView({ brandId, kit, band, shownKey }: { brandId: string; kit: Brand
 
   return (
     <div ref={root} data-reveal="wait" className="kit">
-      <div className="grid gap-5 p-5 @2xl:grid-cols-[208px_minmax(0,1fr)] @2xl:gap-6">
+      <div className="grid gap-5 p-5 @xl:grid-cols-[208px_minmax(0,1fr)] @xl:gap-6">
         {kit.logo ? (
           <StippleLogo src={kit.logo} name={kit.name} play={play} />
         ) : (
@@ -233,9 +233,9 @@ function KitView({ brandId, kit, band, shownKey }: { brandId: string; kit: Brand
         </div>
       </div>
       {good.length || watch.length ? (
-        <div className="grid border-t border-border @2xl:grid-cols-2">
+        <div className="grid border-t border-border @xl:grid-cols-2">
           <Mentions title="In its favour" items={good} delay={480} />
-          <Mentions title="To watch" items={watch} delay={560} className="border-t border-border @2xl:border-t-0 @2xl:border-l" />
+          <Mentions title="To watch" items={watch} delay={560} className="border-t border-border @xl:border-t-0 @xl:border-l" />
         </div>
       ) : null}
       <p data-rise="" style={{ "--d": 640 } as React.CSSProperties} className="border-t border-border px-5 py-2.5 text-[12.5px] text-muted-foreground">

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,6 +18,7 @@ export function CopyLink({ url, label = "Invite link" }: { url: string; label?: 
     try {
       await navigator.clipboard.writeText(url);
       setState("copied");
+      toast("Link copied", { tone: "ok" });
     } catch {
       field.current?.select();
       setState("selected");

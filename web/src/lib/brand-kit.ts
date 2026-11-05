@@ -186,8 +186,14 @@ export async function kitProgress(brandId: string): Promise<{ status: "reading" 
 }
 
 /** The read itself, with nothing saved: hints from the site, the web research, then the logo and the fonts. */
-export async function readBrandKit(brand: { name: string; website: string }, onStep: (text: string) => void = () => {}): Promise<{ kit: BrandKitData; costUsd: number }> {
+export async function readBrandKit(brand: { name: string; website: string }, report: (text: string) => void = () => {}): Promise<{ kit: BrandKitData; costUsd: number }> {
   const site = new URL(brand.website).hostname.replace(/^www\./, "");
+  // The research can run the same search twice; the log only says it once.
+  const said = new Set<string>();
+  const onStep = (text: string) => {
+    if (!said.has(text)) report(text);
+    said.add(text);
+  };
   onStep(`Reading ${site}'s homepage: its icons, theme colour and stylesheets`);
   const hints = await readSiteHints(brand.website).catch(() => null);
   onStep(
@@ -236,6 +242,9 @@ export async function buildBrandKit(brand: { id: string; name: string; website: 
     await brandKits.finish(brand.id, kit, costUsd);
   } catch (error) {
     await writes;
-    await brandKits.fail(brand.id, error);
+    console.error("Brand kit read failed", error);
+    // The ones we wrote can be shown as they are. The SDK's can hold paths and request details.
+    const message = error instanceof Error && error.message.startsWith("Claude ") ? error.message : "The web research stopped before it finished. Try again.";
+    await brandKits.fail(brand.id, new Error(message));
   }
 }
