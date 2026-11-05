@@ -22,6 +22,7 @@ const GHOST_TILES = 120;
 const MIN_MS_PER_FRAME = 40;
 /** How long the check waits for the poster once the upload has finished. A slow decode shouldn't hold up the report. */
 const POSTER_WAIT_MS = 8000;
+const SEEK_TIMEOUT_MS = 4000;
 
 interface Meta {
   duration: number;
@@ -265,11 +266,19 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       const first = [...new Set(wanted)];
       const order = [...first, ...times.map((_, i) => i).filter((i) => !first.includes(i))];
       let last = performance.now();
+      let stuck = 0;
       for (let n = 0; n < order.length; n++) {
         if (signal.aborted) return;
         const i = order[n];
         v.currentTime = times[i];
-        await once(v, "seeked", signal, 8000);
+        try {
+          await once(v, "seeked", signal, SEEK_TIMEOUT_MS);
+        } catch (error) {
+          // One frame that won't decode leaves one empty tile. A few in a row means this file won't play here at all.
+          if (signal.aborted || ++stuck > 2) throw error;
+          continue;
+        }
+        stuck = 0;
         const [x, y] = tileAt(i, grid);
         drawCover(ctx, v, x * dpr, y * dpr, grid.tileW * dpr, grid.tileH * dpr);
         wanted.forEach((frame, tile) => {
@@ -373,7 +382,9 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
         blobUrl = blob.url;
       } catch (error) {
         if (controller.signal.aborted) return;
-        setFailure({ step: "upload", message: (error as Error).message || "The upload stopped. Check your connection and try again." });
+        // The Blob client throws away why /api/upload said no.
+        const message = (error as Error).message || "";
+        setFailure({ step: "upload", message: message && !message.includes("client token") ? message : "The upload couldn't start. Check your connection and try again." });
         return;
       } finally {
         uploadAbort.current = null;

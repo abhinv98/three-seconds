@@ -340,6 +340,13 @@
 [data-theme="dark"] .stamp-ink {
   mix-blend-mode: normal;
 }
+/* On a phone the measured sentence is long, and Finer details has to stay in view under it. */
+@media (max-width: 599px) {
+  .verdict-banner .ts-display {
+    font-size: 30px;
+    line-height: 34px;
+  }
+}
 /* The server's HTML hides what the stamp reveals, until the browser knows whether this is the first look. */
 [data-reveal="wait"] [data-stamp],
 [data-reveal="wait"] [data-after-stamp] {
@@ -362,7 +369,8 @@
     outline-color 120ms ease-out;
 }
 .check-stage-over {
-  outline-color: var(--signal-500);
+  outline: 3px solid var(--signal-500);
+  outline-offset: -3px;
 }
 .check-stage-handover {
   opacity: 0;
@@ -484,7 +492,12 @@
   height: 100%;
   background: var(--signal-500);
   transform-origin: 0 50%;
-  transition: transform 200ms linear;
+  transition:
+    transform 200ms linear,
+    opacity 200ms ease-out;
+}
+.check-step[data-state="done"] .check-step-bar > span {
+  opacity: 0;
 }
 .check-step-mark {
   display: inline-grid;

@@ -129,7 +129,16 @@ export function ReadingBody({ site, steps, clock }: { site: string; steps: KitSt
           {shown.map((step, i) => (
             <li key={`${step.s}-${step.text}`} data-current={i === shown.length - 1 || undefined} className="kit-step grid grid-cols-[42px_minmax(0,1fr)] gap-2">
               <span className="font-mono text-[12px] leading-[20px] text-muted-foreground tabular-nums">{clockText(step.s)}</span>
-              <span className="min-w-0 leading-5 break-words text-muted-foreground">{step.text}</span>
+              <span className="min-w-0 leading-5 break-words text-muted-foreground">
+                {step.text}
+                {step.colors?.length ? (
+                  <span aria-hidden="true" className="ml-2 inline-flex translate-y-[1px] gap-0.5">
+                    {step.colors.map((hex) => (
+                      <span key={hex} className="size-3 rounded-[2px] border border-black/15" style={{ background: hex }} />
+                    ))}
+                  </span>
+                ) : null}
+              </span>
             </li>
           ))}
         </ol>

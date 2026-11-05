@@ -3,10 +3,6 @@
 import { useEffect, useRef } from "react";
 
 const COUNT_MS = 900;
-const COOKIE = "ts-counted";
-
-/** Which account's numbers have already counted up on this browser. The server reads it, so a return visit never flashes a zero. */
-export const COUNTED_COOKIE = COOKIE;
 
 function show(value: number, decimals: number, suffix: string) {
   return `${value.toFixed(decimals)}${suffix}`;
@@ -42,10 +38,10 @@ export function CountUp({ value, decimals = 0, suffix = "", animate }: { value: 
   );
 }
 
-/** Marks this account's first view as done, once the numbers have started. */
-export function CountedOnce({ userId }: { userId: string }) {
+/** Marks this account's first view as done, once the numbers have started. A cookie, so the server knows: no zero flashes on a return visit. */
+export function CountedOnce({ cookie, userId }: { cookie: string; userId: string }) {
   useEffect(() => {
-    document.cookie = `${COOKIE}=${encodeURIComponent(userId)}; path=/dashboard; max-age=31536000; samesite=lax`;
-  }, [userId]);
+    document.cookie = `${cookie}=${encodeURIComponent(userId)}; path=/dashboard; max-age=31536000; samesite=lax`;
+  }, [cookie, userId]);
   return null;
 }

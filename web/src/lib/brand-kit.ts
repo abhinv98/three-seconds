@@ -167,6 +167,8 @@ export interface KitStep {
   /** Seconds since the read started. */
   s: number;
   text: string;
+  /** Colours this step found, shown beside its line. */
+  colors?: string[];
 }
 
 /** What a read is doing, for the brand folder while it waits: a light row with no kit in it, so it can be polled. */
@@ -186,12 +188,12 @@ export async function kitProgress(brandId: string): Promise<{ status: "reading" 
 }
 
 /** The read itself, with nothing saved: hints from the site, the web research, then the logo and the fonts. */
-export async function readBrandKit(brand: { name: string; website: string }, report: (text: string) => void = () => {}): Promise<{ kit: BrandKitData; costUsd: number }> {
+export async function readBrandKit(brand: { name: string; website: string }, report: (text: string, colors?: string[]) => void = () => {}): Promise<{ kit: BrandKitData; costUsd: number }> {
   const site = new URL(brand.website).hostname.replace(/^www\./, "");
   // The research can run the same search twice; the log only says it once.
   const said = new Set<string>();
-  const onStep = (text: string) => {
-    if (!said.has(text)) report(text);
+  const onStep = (text: string, colors?: string[]) => {
+    if (!said.has(text)) report(text, colors);
     said.add(text);
   };
   onStep(`Reading ${site}'s homepage: its icons, theme colour and stylesheets`);
@@ -200,6 +202,7 @@ export async function readBrandKit(brand: { name: string; website: string }, rep
     hints
       ? `On the homepage: ${hints.icons.length} ${hints.icons.length === 1 ? "icon" : "icons"}, ${hints.colors.length} colours, ${hints.fonts.length} ${hints.fonts.length === 1 ? "typeface" : "typefaces"}`
       : `${site} doesn't let us read its homepage, so this comes from the web`,
+    hints?.colors.slice(0, 8).map((c) => c.hex),
   );
   const { research, costUsd } = await researchBrand(brand.name, brand.website, hints, onStep);
   onStep("Fetching the logo and checking the type");
@@ -231,8 +234,8 @@ export async function buildBrandKit(brand: { id: string; name: string; website: 
   const steps: KitStep[] = [];
   // Each step lands in its own write; a lost one only leaves the log a line short.
   let writes = Promise.resolve();
-  const note = (text: string) => {
-    steps.push({ s: Math.round((Date.now() - started) / 1000), text });
+  const note = (text: string, colors?: string[]) => {
+    steps.push({ s: Math.round((Date.now() - started) / 1000), text, colors });
     const progress = JSON.stringify(steps.slice(-MAX_STEPS));
     writes = writes.then(() => run("UPDATE brand_kit SET progress = ? WHERE brand_id = ?", progress, brand.id)).catch(() => {});
   };

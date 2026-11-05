@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { BrandKitPanel } from "@/components/account/brand-kit-panel";
 import { CopyLink } from "@/components/account/copy-link";
-import { COUNTED_COOKIE, CountedOnce, CountUp } from "@/components/account/count-up";
+import { CountedOnce, CountUp } from "@/components/account/count-up";
 import { Notice, Panel, when } from "@/components/account/bits";
 import { ReelThumb } from "@/components/account/reel-thumb";
 import { WeeklyTrend } from "@/components/account/weekly-trend";
@@ -17,6 +17,7 @@ import { requireWritable } from "@/lib/sample";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Overview" };
+const COUNTED_COOKIE = "ts-counted";
 // Reading the brand kit runs after the "Read brand kit" response, inside this page's function.
 export const maxDuration = 300;
 
@@ -55,9 +56,9 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
       ) : (
         <>
           <Kpis overview={overview} animate={animate} brandView={brand !== null} sent={reels.filter((r) => r.sent_at).length} />
-          <CountedOnce userId={viewer.user.id} />
+          <CountedOnce cookie={COUNTED_COOKIE} userId={viewer.user.id} />
           <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_372px]">
-            <Queue items={overview.queue} brandView={brand !== null} />
+            <Queue items={overview.queue} brandView={brand !== null} viewerId={viewer.user.id} />
             <div className="grid gap-5">
               <Panel title="Reels checked per week">
                 <WeeklyTrend weeks={overview.trend} />
@@ -156,7 +157,7 @@ function Kpi({ label, foot, wordy, children }: { label: string; foot: React.Reac
 const QUEUE_LABEL: Record<QueueItem["tone"], string> = { fail: "Failed", error: "Stopped", changes: "Changes requested", review: "Needs a person", waiting: "Waiting" };
 const QUEUE_DOT: Record<QueueItem["tone"], string> = { fail: "bg-fail", error: "bg-muted-foreground", changes: "bg-review", review: "bg-review", waiting: "bg-pass" };
 
-function Queue({ items, brandView }: { items: QueueItem[]; brandView: boolean }) {
+function Queue({ items, brandView, viewerId }: { items: QueueItem[]; brandView: boolean; viewerId: string }) {
   return (
     <Panel
       title="Needs attention"
@@ -181,7 +182,7 @@ function Queue({ items, brandView }: { items: QueueItem[]; brandView: boolean })
                   <span className="block truncate text-sm font-semibold">{reel.filename}</span>
                   <span className="block truncate text-[13px] text-muted-foreground">{reason}</span>
                 </span>
-                <span className="hidden w-32 shrink-0 truncate text-[13px] text-muted-foreground md:block">{brandView ? reel.owner_name : (reel.brand_name ?? "Not sent")}</span>
+                <span className="hidden w-32 shrink-0 truncate text-[13px] text-muted-foreground md:block">{brandView ? (reel.owner_id === viewerId ? "Your team" : reel.owner_name) : (reel.brand_name ?? "Not sent")}</span>
                 <span className="flex w-[108px] shrink-0 items-center gap-1.5 text-[12.5px] font-semibold sm:w-[120px]">
                   <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-[2px]", QUEUE_DOT[tone])} />
                   <span className="truncate">{QUEUE_LABEL[tone]}</span>
