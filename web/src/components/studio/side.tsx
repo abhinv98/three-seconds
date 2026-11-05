@@ -655,16 +655,25 @@ function BrandTab({ reelId, details, report, scene, sceneStatus, sceneError, sce
               <span>{new Set(details.mentions.map((m) => m.source.url)).size} sources</span>
             </header>
             {details.mentions.length ? (
-              <ul className="st-mentions">
-                {details.mentions.map((m) => (
-                  <li key={m.text} data-tone={m.tone}>
-                    <span className="st-mention-dot" aria-label={m.tone === "good" ? "In its favour" : "Watch out for"} />
-                    <p>
-                      {m.text} <Sources sources={[m.source]} />
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              (["good", "watch"] as const)
+                .filter((tone) => details.mentions.some((m) => m.tone === tone))
+                .map((tone) => (
+                  <div key={tone} className="st-mention-group">
+                    <h3>{tone === "good" ? "In its favour" : "Watch out for"}</h3>
+                    <ul className="st-mentions">
+                      {details.mentions
+                        .filter((m) => m.tone === tone)
+                        .map((m) => (
+                          <li key={m.text} data-tone={tone}>
+                            <span className="st-mention-dot" aria-hidden="true" />
+                            <p>
+                              {m.text} <Sources sources={[m.source]} />
+                            </p>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                ))
             ) : (
               <p className="st-muted">The research found nothing recent to quote.</p>
             )}

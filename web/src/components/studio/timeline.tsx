@@ -72,7 +72,6 @@ export interface StudioTimelineProps {
 
 export const StudioTimeline = memo(function StudioTimeline({ duration, scene, report, needed, mentions, moments, notes, clock, onSeek, onMoment, selected, hot, onHot, range, onClearRange, loop, status, emptyNote }: StudioTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const flagRef = useRef<HTMLSpanElement>(null);
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -137,7 +136,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
       if (canvas.height !== h) canvas.height = h;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, viewW, height);
-      return [ctx, { t0, pps, width: viewW, height, duration: safeDuration, mono, dpr }];
+      return [ctx, { t0, pps, width: viewW, height, duration: safeDuration, mono }];
     };
     const ruler = setUp("ruler", RULER_H);
     if (ruler) drawRuler(...ruler);
@@ -377,7 +376,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
             if (lastPointer.current === "touch") onSeek(timeAt(e.clientX));
           }}
         >
-          <div ref={contentRef} className="st-tl-content" style={{ width: contentW, height: tracksHeight }}>
+          <div className="st-tl-content" style={{ width: contentW, height: tracksHeight }}>
             <div className="st-tl-sticky" style={{ width: viewW }}>
               <div
                 ref={sliderRef}

@@ -15,7 +15,6 @@ export interface TrackView {
   height: number;
   duration: number;
   mono: string;
-  dpr: number;
 }
 
 const x = (t: number, v: TrackView) => (t - v.t0) * v.pps;

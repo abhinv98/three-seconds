@@ -32,7 +32,7 @@ export interface OverlayInput {
   ix: SceneIndex | null;
   selected: { moment: Moment; n: number } | null;
   labelSpans: { t_start: number; t_end: number }[];
-  /** False when the report has no idea, because the visual check didn't run. */
+  /** The brand's logo from the kit, once it has loaded. */
   logoImage: HTMLImageElement | null;
   /** The reframe crop in fractions of the frame, or null when off or when the picture is already scaled to it. */
   crop: Box | null;
