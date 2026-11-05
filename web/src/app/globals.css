@@ -174,3 +174,109 @@
     line-height: 36px;
   }
 }
+
+/* The dashboard rail. Hover sits behind the media query so a tap doesn't leave it stuck on. */
+@media (hover: hover) and (pointer: fine) {
+  .rail-link:not([aria-current="page"]):hover,
+  .rail-search:hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+}
+.rail-link,
+.rail-search {
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+
+/* Toasts (components/ui/toast.tsx). */
+.toaster {
+  position: fixed;
+  z-index: 60;
+  right: 16px;
+  left: 16px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  height: 0;
+}
+@media (min-width: 1024px) {
+  .toaster {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    width: 360px;
+  }
+}
+.toast {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: var(--ink-950);
+  border: 1.5px solid var(--ink-950);
+  box-shadow: 0 0 0 1px var(--btn-keyline);
+  color: var(--paper-100);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  touch-action: none;
+  user-select: none;
+  z-index: calc(10 - var(--i));
+  transform: translate3d(0, calc(var(--i) * -9px), 0) scale(calc(1 - var(--i) * 0.05));
+  transform-origin: 50% 100%;
+  transition:
+    transform 260ms var(--ease-out),
+    opacity 200ms ease-out;
+}
+@starting-style {
+  .toast {
+    transform: translate3d(0, 100%, 0);
+    opacity: 0;
+  }
+}
+.toast-fail {
+  background: var(--fail-600);
+  border-color: var(--ink-950);
+  color: var(--paper-50);
+}
+.toast[data-dragging] {
+  transition: none;
+}
+.toast[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
+}
+/* A swipe leaves its own transform inline, and that wins over this one. */
+.toast[data-closing] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, 100%, 0);
+}
+/* The pointer on the stack opens it out, so every toast can be read. The filler bridges the gap between two toasts. */
+@media (hover: hover) and (pointer: fine) {
+  .toaster:hover .toast:not([data-closing]) {
+    transform: translate3d(0, calc(var(--i) * (-100% - 8px)), 0);
+  }
+  .toast::after {
+    content: "";
+    position: absolute;
+    inset: 100% 0 -8px;
+  }
+}
+
+/* The command palette: no open animation, on purpose. */
+.command-palette {
+  width: min(600px, calc(100vw - 32px));
+  margin: 12dvh auto auto;
+  padding: 0;
+  border: 1.5px solid var(--ink-950);
+  border-radius: 6px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: 0 0 0 1px var(--btn-keyline);
+}
+.command-palette::backdrop {
+  background: rgb(18 18 18 / 0.4);
+}
