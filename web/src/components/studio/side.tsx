@@ -107,7 +107,7 @@ function ReadingState({ since }: { since: string }) {
   );
 }
 
-function RetryForm({ reelId, readOnly, label }: { reelId: string; readOnly: boolean; label: string }) {
+export function RetryForm({ reelId, readOnly, label }: { reelId: string; readOnly: boolean; label: string }) {
   return (
     <form action={finerDetailsAction}>
       <input type="hidden" name="reelId" value={reelId} />
@@ -139,14 +139,17 @@ interface CardProps {
 const MomentCard = memo(function MomentCard({ moment, n, brand, selected, hot, active, done, readOnly, onChoose, onHot, onSeek, onShowFix, onDone }: CardProps) {
   const ref = useRef<HTMLLIElement>(null);
   const { t_start, t_end } = extent(moment);
+  const wasSelected = useRef(selected);
   useEffect(() => {
-    if (selected && window.matchMedia("(min-width: 1100px)").matches) ref.current?.scrollIntoView({ block: "nearest" });
+    // Only when the choice changes, not when the page opens with the first card chosen.
+    if (selected && !wasSelected.current && window.matchMedia("(min-width: 1100px)").matches) ref.current?.scrollIntoView({ block: "nearest" });
+    wasSelected.current = selected;
   }, [selected]);
   const forCreator = `${n}. ${moment.title} (${formatRange(t_start, t_end)})\n${moment.shouldBe}`;
   return (
     <li ref={ref} className="st-card" data-selected={selected || undefined} data-hot={hot || undefined} data-done={done || undefined} onPointerEnter={() => onHot(moment.id)} onPointerLeave={() => onHot(null)}>
       <button type="button" className="st-still" onClick={() => onChoose(moment)} aria-label={`Show change ${n} on the Reel: ${moment.title}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- a small still saved with the read */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={moment.thumb} alt="" loading="lazy" />
         {done ? (
           <span className="st-still-done">
@@ -220,42 +223,64 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function SpriteTile({ sprite, t }: { sprite: SceneData["sprite"]; t: number }) {
+function SpriteTile({ sprite, image, t }: { sprite: SceneData["sprite"]; image: HTMLImageElement | null; t: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const image = new Image();
-    image.onload = () => {
-      const canvas = ref.current;
-      const ctx = canvas?.getContext("2d");
-      if (!canvas || !ctx) return;
-      const tile = clamp(Math.floor(t / sprite.every_s), 0, sprite.cols * sprite.rows - 1);
-      ctx.drawImage(image, (tile % sprite.cols) * sprite.tile_w, Math.floor(tile / sprite.cols) * sprite.tile_h, sprite.tile_w, sprite.tile_h, 0, 0, canvas.width, canvas.height);
-    };
-    image.src = sprite.src;
-  }, [sprite, t]);
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx || !image) return;
+    const tile = clamp(Math.floor(t / sprite.every_s), 0, sprite.cols * sprite.rows - 1);
+    ctx.drawImage(image, (tile % sprite.cols) * sprite.tile_w, Math.floor(tile / sprite.cols) * sprite.tile_h, sprite.tile_w, sprite.tile_h, 0, 0, canvas.width, canvas.height);
+  }, [sprite, image, t]);
   return <canvas ref={ref} width={sprite.tile_w} height={sprite.tile_h} aria-hidden="true" className="st-cover-tile" />;
 }
 
 function Covers({ scene, onSeek, onStill }: { scene: SceneData; onSeek: (t: number) => void; onStill: (t: number) => void }) {
-  if (!scene.covers.length) {
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [picked, setPicked] = useState(0);
+  const { sprite, covers } = scene;
+  useEffect(() => {
+    const sheet = new Image();
+    sheet.onload = () => setImage(sheet);
+    sheet.src = sprite.src;
+  }, [sprite.src]);
+  if (!covers.length) {
     return <p className="st-muted">No frame has the creator&rsquo;s face and the product together, so there&rsquo;s no cover to suggest.</p>;
   }
   return (
     <>
       <ul className="st-covers">
-        {scene.covers.map((cover) => (
+        {covers.map((cover, i) => (
           <li key={cover.t}>
-            <button type="button" className="st-cover" onClick={() => onSeek(cover.t)} aria-label={`Go to the cover frame at ${formatTimecode(cover.t)}`}>
-              <SpriteTile sprite={scene.sprite} t={cover.t} />
+            <button
+              type="button"
+              className="st-cover"
+              aria-pressed={i === picked}
+              onClick={() => {
+                setPicked(i);
+                onSeek(cover.t);
+              }}
+              aria-label={`Go to the cover frame at ${formatTimecode(cover.t)}`}
+            >
+              <SpriteTile sprite={sprite} image={image} t={cover.t} />
               <span className="st-cover-time">{formatTimecode(cover.t)}</span>
             </button>
-            <button type="button" className="st-tool st-cover-save" onClick={() => onStill(cover.t)} aria-label={`Download the still at ${formatTimecode(cover.t)}`} title="Download the still">
+            <button
+              type="button"
+              className="st-tool st-cover-save"
+              onClick={() => {
+                setPicked(i);
+                onStill(cover.t);
+              }}
+              aria-label={`Download the still at ${formatTimecode(cover.t)}`}
+              title="Download the still"
+            >
               <Download size={14} aria-hidden="true" />
             </button>
           </li>
         ))}
       </ul>
-      <p className="st-muted">{scene.covers[0].why}</p>
+      <p className="st-muted">{covers[Math.min(picked, covers.length - 1)].why}</p>
     </>
   );
 }
@@ -429,7 +454,7 @@ function NotesList({ reelId, notes, readOnly, onSeek, onGone }: { reelId: string
                   onClick={() =>
                     start(async () => {
                       onGone(note.id);
-                      const result = await deleteNoteAction(reelId, note.id);
+                      const result = await deleteNoteAction(reelId, note.id).catch(() => ({ error: "Couldn't reach the server. Try again." }));
                       if ("error" in result) toast(result.error, { tone: "fail" });
                     })
                   }
@@ -698,7 +723,7 @@ function CaptionCheck({ reelId, saved, readOnly }: { reelId: string; saved: Reel
   const result = useMemo(() => checkCaption(text, tag), [text, tag]);
   const save = useCallback(() => {
     start(async () => {
-      const answer = await saveCaptionAction(reelId, text, tag);
+      const answer = await saveCaptionAction(reelId, text, tag).catch(() => ({ error: "Couldn't reach the server. Try again." }));
       if ("error" in answer) toast(answer.error, { tone: "fail" });
       else toast("Caption saved", { tone: "ok" });
     });

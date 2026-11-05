@@ -1,40 +1,48 @@
 "use client";
 
 import { Eye, EyeOff, Maximize2, Minus, Plus, X } from "lucide-react";
-import { memo, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { extent, type Moment, MOTION_STEP_S } from "@/lib/details";
+import { memo, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { extent, type Moment, type MomentKind, MOTION_STEP_S } from "@/lib/details";
 import { formatRange, formatTimecode } from "@/lib/format";
 import type { ReelNote } from "@/lib/review";
 import type { Report } from "@/lib/report";
 import type { SceneData } from "@/lib/scene";
 import { cn } from "@/lib/utils";
 import type { Clock } from "./clock";
-import { type BrandMention, clamp, frameTimecode, placeMarkers, zoomedScroll } from "./geometry";
+import { type BrandMention, clamp, EDIT_FPS, frameTimecode, placeMarkers, zoomedScroll } from "./geometry";
 import { describeTime, drawAudio, drawFilmstrip, drawLabel, drawLane, drawLogo, drawMotion, drawProduct, drawRuler, drawShots, drawSpeech, drawWaiting, type TrackView } from "./tracks";
 
 type TrackId = "film" | "shots" | "label" | "creator" | "product" | "logo" | "motion" | "audio" | "speech" | "notes";
 
-const ROWS: { id: TrackId; name: string; h: number; needsScene: boolean }[] = [
-  { id: "film", name: "Filmstrip", h: 40, needsScene: true },
-  { id: "shots", name: "Shots", h: 14, needsScene: true },
-  { id: "label", name: "Label", h: 20, needsScene: false },
-  { id: "creator", name: "Creator", h: 13, needsScene: true },
-  { id: "product", name: "Product", h: 13, needsScene: true },
-  { id: "logo", name: "Logo", h: 13, needsScene: true },
-  { id: "motion", name: "Motion", h: 24, needsScene: true },
-  { id: "audio", name: "Audio", h: 28, needsScene: true },
-  { id: "speech", name: "Speech", h: 18, needsScene: false },
-  { id: "notes", name: "Notes", h: 24, needsScene: false },
+const ROWS: { id: TrackId; name: string; h: number; short: number; needsScene: boolean }[] = [
+  { id: "film", name: "Filmstrip", h: 40, short: 28, needsScene: true },
+  { id: "shots", name: "Shots", h: 14, short: 12, needsScene: true },
+  { id: "label", name: "Label", h: 20, short: 18, needsScene: false },
+  { id: "creator", name: "Creator", h: 13, short: 10, needsScene: true },
+  { id: "product", name: "Product", h: 13, short: 10, needsScene: true },
+  { id: "logo", name: "Logo", h: 13, short: 10, needsScene: true },
+  { id: "motion", name: "Motion", h: 24, short: 16, needsScene: true },
+  { id: "audio", name: "Audio", h: 28, short: 18, needsScene: true },
+  { id: "speech", name: "Speech", h: 18, short: 16, needsScene: false },
+  { id: "notes", name: "Notes", h: 24, short: 24, needsScene: false },
 ];
 const RULER_H = 24;
 const ROW_GAP = 1;
 const MAX_ZOOM = 24;
-const NOTES_TOP = RULER_H + ROWS.slice(0, -1).reduce((sum, row) => sum + row.h + ROW_GAP, 0);
+const MARKER_SPACING = 18;
+
+const SHORT_WINDOW = "(max-height: 820px)";
+const subscribeShort = (onChange: () => void) => {
+  const media = window.matchMedia(SHORT_WINDOW);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+};
 
 interface Marker {
   key: string;
   t: number;
   kind: "moment" | "note";
+  momentKind?: MomentKind;
   id: string;
   n: number;
   text: string;
@@ -58,13 +66,16 @@ export interface StudioTimelineProps {
   onClearRange: () => void;
   loop: { start: number; end: number } | null;
   status: ReactNode;
+  /** Said across the empty rows while there's no scene. */
+  emptyNote: string | null;
 }
 
-export const StudioTimeline = memo(function StudioTimeline({ duration, scene, report, needed, mentions, moments, notes, clock, onSeek, onMoment, selected, hot, onHot, range, onClearRange, loop, status }: StudioTimelineProps) {
+export const StudioTimeline = memo(function StudioTimeline({ duration, scene, report, needed, mentions, moments, notes, clock, onSeek, onMoment, selected, hot, onHot, range, onClearRange, loop, status, emptyNote }: StudioTimelineProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const flagRef = useRef<HTMLSpanElement>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
   const hoverTimeRef = useRef<HTMLSpanElement>(null);
   const readoutRef = useRef<HTMLSpanElement>(null);
@@ -75,6 +86,8 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
   const [sprite, setSprite] = useState<HTMLImageElement | null>(null);
   const [revealDone, setRevealDone] = useState(false);
   const pendingScroll = useRef<number | null>(null);
+  const short = useSyncExternalStore(subscribeShort, () => window.matchMedia(SHORT_WINDOW).matches, () => false);
+  const rows = useMemo(() => ROWS.map((row) => ({ ...row, h: short ? row.short : row.h })), [short]);
   const dragging = useRef(false);
   const lastPointer = useRef("mouse");
   const safeDuration = duration > 0 ? duration : 1;
@@ -128,7 +141,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
     };
     const ruler = setUp("ruler", RULER_H);
     if (ruler) drawRuler(...ruler);
-    for (const row of ROWS) {
+    for (const row of rows) {
       const set = setUp(row.id, row.h);
       if (!set) continue;
       const [ctx, view] = set;
@@ -166,7 +179,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
           break;
       }
     }
-  }, [viewW, pps, safeDuration, scene, sprite, labelSpans, needed, report.transcript, mentions]);
+  }, [viewW, pps, safeDuration, scene, sprite, labelSpans, needed, report.transcript, mentions, rows]);
 
   useEffect(() => {
     let alive = true;
@@ -195,6 +208,12 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
       if (flag) {
         flag.textContent = frameTimecode(t);
         flag.style.transform = `translate3d(${clamp(x - half, 0, contentW - 2 * half) - x}px, 0, 0)`;
+      }
+      const slider = sliderRef.current;
+      const tenth = String(Math.round(t * 10) / 10);
+      if (slider && slider.getAttribute("aria-valuenow") !== tenth) {
+        slider.setAttribute("aria-valuenow", tenth);
+        slider.setAttribute("aria-valuetext", formatTimecode(t));
       }
       const scroller = scrollRef.current;
       if (scroller && zoom > 1 && !dragging.current) {
@@ -240,11 +259,11 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
   }, [applyZoom, zoom]);
 
   const markers = useMemo<Marker[]>(() => {
-    const list: Marker[] = moments.map((m, i) => ({ key: `m-${m.id}`, t: extent(m).t_start, kind: "moment", id: m.id, n: i + 1, text: m.title }));
+    const list: Marker[] = moments.map((m, i) => ({ key: `m-${m.id}`, t: extent(m).t_start, kind: "moment", momentKind: m.kind, id: m.id, n: i + 1, text: m.title }));
     for (const note of notes) list.push({ key: `n-${note.id}`, t: note.t, kind: "note", id: note.id, n: 0, text: note.text });
     return list.sort((a, b) => a.t - b.t);
   }, [moments, notes]);
-  const markerXs = useMemo(() => placeMarkers(markers.map((m) => m.t), pps, 18, contentW - 8), [markers, pps, contentW]);
+  const markerXs = useMemo(() => placeMarkers(markers.map((m) => m.t), pps, MARKER_SPACING, contentW - MARKER_SPACING / 2), [markers, pps, contentW]);
 
   const bandMoment = moments.find((m) => m.id === hot) ?? moments.find((m) => m.id === selected);
   const band = bandMoment?.spans.length ? extent(bandMoment) : null;
@@ -258,7 +277,8 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
       return next;
     });
 
-  const tracksHeight = RULER_H + ROWS.reduce((sum, row) => sum + row.h + ROW_GAP, 0);
+  const tracksHeight = RULER_H + rows.reduce((sum, row) => sum + row.h + ROW_GAP, 0);
+  const notesTop = tracksHeight - rows[rows.length - 1].h - ROW_GAP;
 
   return (
     <section className="st-timeline" aria-label="Timeline">
@@ -299,10 +319,10 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
           </button>
         </div>
       </div>
-      <div className="st-tl-grid" style={{ height: tracksHeight + 8 }}>
+      <div className="st-tl-grid" style={{ height: tracksHeight + 6 }}>
         <div className="st-tl-heads">
           <div className="st-tl-head-ruler" style={{ height: RULER_H }} />
-          {ROWS.map((row) => {
+          {rows.map((row) => {
             const off = hidden.has(row.id);
             return (
               <div key={row.id} className="st-tl-head" data-off={off || undefined} style={{ height: row.h, marginBottom: ROW_GAP }}>
@@ -325,7 +345,7 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
             // A finger on the rows scrolls the timeline sideways; on the ruler it scrubs.
             if (e.pointerType === "touch" && !onRuler) return;
             const rect = e.currentTarget.getBoundingClientRect();
-            if (e.clientY > rect.bottom - 8) return; // the scrollbar
+            if (e.clientY > rect.bottom - 6) return; // the scrollbar
             dragging.current = true;
             e.currentTarget.setPointerCapture(e.pointerId);
             onSeek(timeAt(e.clientX));
@@ -359,7 +379,25 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
         >
           <div ref={contentRef} className="st-tl-content" style={{ width: contentW, height: tracksHeight }}>
             <div className="st-tl-sticky" style={{ width: viewW }}>
-              <div data-ruler className="st-tl-ruler" style={{ height: RULER_H }}>
+              <div
+                ref={sliderRef}
+                data-ruler
+                className="st-tl-ruler"
+                style={{ height: RULER_H }}
+                role="slider"
+                tabIndex={0}
+                aria-label="Playhead"
+                aria-valuemin={0}
+                aria-valuemax={Math.round(safeDuration * 10) / 10}
+                aria-valuenow={0}
+                aria-valuetext={formatTimecode(0)}
+                onKeyDown={(e) => {
+                  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSeek(clock.t + (e.key === "ArrowLeft" ? -1 : 1) / EDIT_FPS);
+                }}
+              >
                 <canvas
                   ref={(el) => {
                     canvases.current.ruler = el;
@@ -368,7 +406,12 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
                   style={{ width: viewW, height: RULER_H }}
                 />
               </div>
-              {ROWS.map((row, i) => (
+              {!hasScene && emptyNote ? (
+                <p className="st-tl-empty" style={{ top: RULER_H, height: rows[0].h }}>
+                  {emptyNote}
+                </p>
+              ) : null}
+              {rows.map((row, i) => (
                 <div
                   key={row.id}
                   className="st-tl-row"
@@ -403,14 +446,15 @@ export const StudioTimeline = memo(function StudioTimeline({ duration, scene, re
             {loop ? <div className="st-tl-loop" style={{ left: loop.start * pps, width: Math.max(2, (loop.end - loop.start) * pps) }} /> : null}
 
             {!hidden.has("notes") ? (
-              <div className="st-tl-notes" style={{ top: NOTES_TOP, height: ROWS[ROWS.length - 1].h }}>
+              <div className="st-tl-notes" style={{ top: notesTop, height: rows[rows.length - 1].h }}>
                 {markers.map((marker, i) => (
                   <button
                     key={marker.key}
                     type="button"
                     className={cn("st-marker", marker.kind === "note" && "st-marker-note")}
+                    data-kind={marker.momentKind}
                     data-hot={marker.id === hot || marker.id === selected || undefined}
-                    style={{ transform: `translate3d(${markerXs[i]}px, 0, 0)` }}
+                    style={{ left: markerXs[i] }}
                     aria-label={marker.kind === "moment" ? `Change ${marker.n} at ${formatTimecode(marker.t)}: ${marker.text}` : `Note at ${formatTimecode(marker.t)}: ${marker.text}`}
                     title={marker.kind === "moment" ? `${marker.n}. ${marker.text} (${formatRange(marker.t, extent(moments[marker.n - 1]).t_end)})` : marker.text}
                     onPointerDown={(e) => e.stopPropagation()}

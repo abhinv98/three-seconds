@@ -463,14 +463,16 @@ export function readoutAt(ix: SceneIndex | null, report: Report, t: number): Rea
   const clause = clauseAt(report, t);
   if (!ix) return { shot: null, shots: null, creator: null, productShare: null, logoSeen: null, motion: null, labelOn, clause };
   const { scene } = ix;
+  const failed = (id: string) => scene.failed.includes(id);
   const product = trackAt(ix.product, t, scene.shots, ix.trackStep);
   return {
     shot: shotOf(scene.shots, t) + 1,
     shots: scene.shots.length + 1,
-    creator: inStretches(scene.lanes.creator, t),
-    productShare: product ? product[2] * product[3] : 0,
-    logoSeen: inStretches(scene.lanes.logo, t),
-    motion: scene.motion[Math.min(scene.motion.length - 1, Math.floor(t / MOTION_STEP_S))] ?? 0,
+    // A concept SAM couldn't run was never measured, which is not the same as not seen.
+    creator: failed("person") && failed("face") ? null : inStretches(scene.lanes.creator, t),
+    productShare: failed("product") ? null : product ? product[2] * product[3] : 0,
+    logoSeen: failed("logo") ? null : inStretches(scene.lanes.logo, t),
+    motion: failed("person") ? null : (scene.motion[Math.min(scene.motion.length - 1, Math.floor(t / MOTION_STEP_S))] ?? 0),
     labelOn,
     clause,
   };

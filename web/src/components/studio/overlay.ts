@@ -277,7 +277,8 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, input: OverlayInput) 
         cornerTicks(ctx, x, y, bw, bh, color);
         tag(ctx, phrases.logo, x, tagY(y, y + bh), color, INK, w, mono);
       }
-      if (missing && !layers.ghost) {
+      // The ghost logo takes the corner itself when there's no product to sit beside.
+      if (missing && !(layers.ghost && input.logoImage?.naturalWidth && !product)) {
         const [x, y, bw, bh] = [SAFE_CORNER[0] * w, SAFE_CORNER[1] * h, SAFE_CORNER[2] * w, SAFE_CORNER[3] * h];
         ctx.save();
         ctx.setLineDash([4, 3]);

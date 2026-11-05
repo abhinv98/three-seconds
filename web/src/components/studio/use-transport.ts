@@ -43,7 +43,8 @@ export function useTransport(videoRef: RefObject<HTMLVideoElement | null>, clock
     let rafHandle = 0;
     if ("requestVideoFrameCallback" in video) {
       const tick = (_: number, meta: { mediaTime: number }) => {
-        onTime(meta.mediaTime);
+        // A frame arriving mid-seek is from before it, and would drag the playhead back under the pointer.
+        if (!video.seeking) onTime(meta.mediaTime);
         frameHandle = video.requestVideoFrameCallback(tick);
       };
       frameHandle = video.requestVideoFrameCallback(tick);

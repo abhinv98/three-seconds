@@ -407,6 +407,14 @@ describe("the readout at the playhead", () => {
   });
 });
 
+describe("the readout when SAM couldn't run a concept", () => {
+  it("says not measured rather than not seen", () => {
+    const report = { tracks: [], checks: [] } as unknown as Report;
+    const scene = sceneWith({ failed: ["product", "logo"], lanes: { creator: [{ t_start: 0, t_end: 9 }], product: [], logo: [], logoMissing: [], hand: [], productInHand: [] } });
+    expect(readoutAt(indexScene(scene), report, 1)).toMatchObject({ creator: true, productShare: null, logoSeen: null });
+  });
+});
+
 describe("fixesAt", () => {
   const fix = { style: "pill" as const, text: "x", box: [0, 0, 1, 1] as Box, spans: [{ t_start: 1, t_end: 2 }] };
   const moments = [{ id: "a", fix }, { id: "b", fix }, { id: "c" }] as Moment[];

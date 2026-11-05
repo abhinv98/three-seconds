@@ -1,10 +1,6 @@
-/* The Finer Details Studio: a dark, dense editor. It covers the dashboard shell, which stays mounted underneath, so the
-   shell's rail leaves the tab order and the page behind it stops scrolling. */
+/* The Finer Details Studio: a dark, dense editor over the whole window, so the page behind it stops scrolling. */
 html:has(.studio) {
   overflow: hidden;
-}
-body:has(.studio) aside:not(.st-side) {
-  visibility: hidden;
 }
 
 .studio[data-theme] {
@@ -121,6 +117,13 @@ body:has(.studio) aside:not(.st-side) {
   align-items: center;
   gap: 9px;
   min-width: 0;
+}
+
+.st-top-name {
+  flex: none;
+  color: var(--st-dim);
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .st-file {
@@ -770,6 +773,24 @@ body:has(.studio) aside:not(.st-side) {
   border-bottom: 1px solid var(--st-line);
 }
 
+.st-tl-bar [data-slot="button"] {
+  height: 22px;
+  padding: 0 7px;
+  font-size: 11.5px;
+}
+
+.st-tl-empty {
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--st-dim);
+  font-size: 12px;
+}
+
 .st-tl-readout {
   flex: 1 1 0;
   min-width: 0;
@@ -877,7 +898,7 @@ body:has(.studio) aside:not(.st-side) {
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  cursor: text;
+  cursor: default;
   overscroll-behavior-x: contain;
   scrollbar-color: #3a3936 transparent;
   scrollbar-width: thin;
@@ -894,6 +915,10 @@ body:has(.studio) aside:not(.st-side) {
   position: sticky;
   left: 0;
   z-index: 0;
+}
+
+.st-tl-ruler:focus-visible {
+  outline-offset: -2px;
 }
 
 .st-tl-ruler {
@@ -990,6 +1015,14 @@ body:has(.studio) aside:not(.st-side) {
     scale 140ms var(--ease-out);
 }
 
+.st-marker[data-kind="ASCI"] {
+  border-color: #f37a88;
+}
+
+.st-marker[data-kind="Trust"] {
+  border-color: #f2bd45;
+}
+
 .st-marker[data-hot] {
   background: var(--st-orange);
   border-color: var(--st-orange);
@@ -998,13 +1031,13 @@ body:has(.studio) aside:not(.st-side) {
 }
 
 .st-marker-note {
-  top: 7px;
-  left: -5px;
-  width: 10px;
-  height: 10px;
-  border-color: #48bcc6;
+  top: 5px;
+  width: 14px;
+  height: 14px;
+  margin-left: 1px;
+  border: 0;
   background: #48bcc6;
-  rotate: 45deg;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 
 .st-tl-hover {
@@ -1108,6 +1141,12 @@ body:has(.studio) aside:not(.st-side) {
   border-radius: 50%;
   background: var(--st-orange);
   animation: st-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-pulse {
+    animation: none;
+  }
 }
 
 @keyframes st-pulse {
@@ -1440,6 +1479,11 @@ body:has(.studio) aside:not(.st-side) {
 
 .st-cover:active {
   transform: scale(0.97);
+}
+
+.st-cover[aria-pressed="true"] {
+  outline: 2px solid var(--st-orange);
+  outline-offset: 1px;
 }
 
 .st-cover-tile {
@@ -1870,6 +1914,10 @@ section > .st-muted + [data-slot="button"],
 
   .st-top-title {
     flex: 1 1 0;
+  }
+
+  .st-top-name {
+    display: none;
   }
 
   .st-banner {

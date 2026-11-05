@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type BrandKit, type Box, type Moment } from "@/lib/details";
 import { cn } from "@/lib/utils";
 import type { Clock } from "./clock";
@@ -35,12 +35,13 @@ export interface MonitorProps {
   brandFont: string;
   labelSpans: { t_start: number; t_end: number }[];
   wipe: boolean;
+  wipeStart: { percent: number };
   reframe: ReframeAspect | null;
   scaleUp: boolean;
   onToggle: () => void;
 }
 
-export function Monitor({ src, poster, filename, width, height, videoRef, clock, ix, layers, selected, moments, brand, brandFont, labelSpans, wipe, reframe, scaleUp, onToggle }: MonitorProps) {
+export function Monitor({ src, poster, filename, width, height, videoRef, clock, ix, layers, selected, moments, brand, brandFont, labelSpans, wipe, wipeStart, reframe, scaleUp, onToggle }: MonitorProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -150,6 +151,7 @@ export function Monitor({ src, poster, filename, width, height, videoRef, clock,
             onError={() => setVideoFailed(true)}
           />
           <canvas ref={canvasRef} aria-hidden="true" className="st-overlay" width={Math.round(cssW * stage.dpr)} height={Math.round(cssH * stage.dpr)} style={{ width: cssW, height: cssH }} />
+          {/* ponytail: the wipe's percent is of the frame and this layer is the full picture, which only match while a crop keeps the full width, as it does on a vertical Reel. */}
           {layers.fixes ? (
             <div aria-hidden="true" className={cn("st-fixes", wipe && "st-fixes-wiped")}>
               {fixes.map(({ id, fix }) => (
@@ -169,7 +171,7 @@ export function Monitor({ src, poster, filename, width, height, videoRef, clock,
             </div>
           ) : null}
         </div>
-        {wipe && layers.fixes ? <WipeDivider frameRef={frameRef} empty={!fixes.length} /> : null}
+        {wipe && layers.fixes ? <WipeDivider frameRef={frameRef} start={wipeStart} empty={!fixes.length} /> : null}
         {videoFailed ? <p className="st-video-failed">This video couldn&rsquo;t be loaded.</p> : null}
       </div>
     </div>
@@ -177,18 +179,18 @@ export function Monitor({ src, poster, filename, width, height, videoRef, clock,
 }
 
 /** Drag or use the arrow keys. The position lives in a CSS variable, so dragging never re-renders anything. */
-function WipeDivider({ frameRef, empty }: { frameRef: RefObject<HTMLDivElement | null>; empty: boolean }) {
-  const [start] = useState(50);
-  const value = useRef(start);
+function WipeDivider({ frameRef, start, empty }: { frameRef: RefObject<HTMLDivElement | null>; start: { percent: number }; empty: boolean }) {
+  const value = useRef(start.percent);
   const handleRef = useRef<HTMLDivElement>(null);
-  const set = (percent: number) => {
-    value.current = clamp(percent, 0, 100);
-    frameRef.current?.style.setProperty("--wipe", `${value.current}%`);
-    handleRef.current?.setAttribute("aria-valuenow", String(Math.round(value.current)));
-  };
-  useLayoutEffect(() => {
-    frameRef.current?.style.setProperty("--wipe", "50%");
-  }, [frameRef]);
+  const set = useCallback(
+    (percent: number) => {
+      value.current = clamp(percent, 0, 100);
+      frameRef.current?.style.setProperty("--wipe", `${value.current}%`);
+      handleRef.current?.setAttribute("aria-valuenow", String(Math.round(value.current)));
+    },
+    [frameRef],
+  );
+  useLayoutEffect(() => set(start.percent), [set, start]);
   const fromPointer = (clientX: number) => {
     const rect = frameRef.current?.getBoundingClientRect();
     if (rect?.width) set(((clientX - rect.left) / rect.width) * 100);
@@ -204,7 +206,7 @@ function WipeDivider({ frameRef, empty }: { frameRef: RefObject<HTMLDivElement |
         aria-label="Wipe between as posted and with fixes"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={start}
+        aria-valuenow={50}
         className="st-wipe-handle"
         onPointerDown={(e) => {
           e.currentTarget.setPointerCapture(e.pointerId);

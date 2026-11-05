@@ -16,11 +16,12 @@ import { formatTimecode } from "@/lib/format";
 import { type Report, verdictStatus } from "@/lib/report";
 import type { ReelCaption, ReelNote, ReelReview } from "@/lib/review";
 import type { SceneData } from "@/lib/scene";
+import { cn } from "@/lib/utils";
 import { type Clock, createClock, elapsedText, useElapsed, useTimeStep } from "./clock";
 import { brandMentions, brandWords, fixesAt, frameTimecode, indexScene, inStretches, motionWord, nextStop, type ReframeAspect, readoutAt, type SceneIndex, stopsFrom, trackAt, handsAt, bodyAt } from "./geometry";
 import { Monitor } from "./monitor";
 import { LAYER_COLOR, type LayerId, type Layers } from "./overlay";
-import { copyText, Gated, SidePanel } from "./side";
+import { copyText, Gated, RetryForm, SidePanel } from "./side";
 import { EyeSwap, StudioTimeline } from "./timeline";
 import { useTransport } from "./use-transport";
 import "./studio.css";
@@ -50,6 +51,7 @@ interface SceneState {
 }
 
 const SCENE_POLL_MS = 4000;
+const OFFLINE = "Couldn't reach the server. Try again.";
 
 /** Fetches the scene, and keeps asking while the job runs. */
 function useScene(url: string): SceneState {
@@ -142,11 +144,18 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
   const [reframe, setReframe] = useState<ReframeAspect | null>(null);
   const [scaleUp, setScaleUp] = useState(false);
   const [wipe, setWipe] = useState(false);
+  const [wipeStart, setWipeStart] = useState({ percent: 50 });
   const [range, setRange] = useState<{ in: number | null; out: number | null }>({ in: null, out: null });
   const [showKeys, setShowKeys] = useState(false);
 
-  const [optimisticDone, setOptimisticDone] = useOptimistic(done);
-  const doneSet = useMemo(() => new Set(optimisticDone), [optimisticDone]);
+  // Held here and not with useOptimistic: marking done doesn't refresh the page, so the prop wouldn't catch up.
+  const [doneList, setDoneList] = useState(done);
+  const [doneFromServer, setDoneFromServer] = useState(done);
+  if (doneFromServer !== done) {
+    setDoneFromServer(done);
+    setDoneList(done);
+  }
+  const doneSet = useMemo(() => new Set(doneList), [doneList]);
   const [optimisticNotes, setOptimisticNotes] = useOptimistic(notes);
   const [optimisticReview, setOptimisticReview] = useOptimistic(review);
 
@@ -156,7 +165,24 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
   const setFixView = useCallback((view: "posted" | "ab" | "fixed") => {
     setLayers((known) => ({ ...known, fixes: view !== "posted" }));
     setWipe(view === "ab");
+    if (view === "ab") setWipeStart({ percent: 50 });
   }, []);
+
+  // On a phone the side panel is below the monitor, so what it asks for could otherwise play off screen.
+  const revealMonitor = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const { top, bottom } = video.getBoundingClientRect();
+    if (bottom < 64 || top > window.innerHeight - 64) video.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }, []);
+
+  const seekFromSide = useCallback(
+    (t: number) => {
+      seek(t);
+      revealMonitor();
+    },
+    [seek, revealMonitor],
+  );
 
   const chooseMoment = useCallback(
     (moment: Moment) => {
@@ -166,8 +192,9 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
       setLoop({ start: span.t_start, end: span.t_end });
       seek(span.t_start, true);
       play();
+      revealMonitor();
     },
-    [setLoop, seek, play],
+    [setLoop, seek, play, revealMonitor],
   );
 
   const showFix = useCallback(
@@ -175,24 +202,34 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
       setSelectedId(moment.id);
       setLayers((known) => ({ ...known, fixes: true }));
       setWipe(true);
+      // Through the middle of the fix, so both sides of the wipe show something different.
+      if (moment.fix) setWipeStart({ percent: (moment.fix.box[0] + moment.fix.box[2] / 2) * 100 });
       const span = moment.fix?.spans[0];
       if (!span) return;
       setLoop({ start: span.t_start, end: span.t_end });
       seek(span.t_start, true);
       play();
+      revealMonitor();
     },
-    [setLoop, seek, play],
+    [setLoop, seek, play, revealMonitor],
   );
 
   const setDone = useCallback(
     (id: string, next: boolean) => {
-      startTransition(async () => {
-        setOptimisticDone((known) => (next ? [...known, id] : known.filter((d) => d !== id)));
-        const result = await setMomentDoneAction(reelId, id, next);
-        if ("error" in result) toast(result.error, { tone: "fail" });
-      });
+      const undo = () => setDoneList((known) => (next ? known.filter((d) => d !== id) : [...known, id]));
+      setDoneList((known) => (next ? [...known, id] : known.filter((d) => d !== id)));
+      void setMomentDoneAction(reelId, id, next)
+        .then((result) => {
+          if (!("error" in result)) return;
+          undo();
+          toast(result.error, { tone: "fail" });
+        })
+        .catch(() => {
+          undo();
+          toast(OFFLINE, { tone: "fail" });
+        });
     },
-    [reelId, setOptimisticDone],
+    [reelId],
   );
 
   const noteGone = useCallback((id: string) => setOptimisticNotes((known) => known.filter((n) => n.id !== id)), [setOptimisticNotes]);
@@ -201,7 +238,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
     (t: number, text: string) => {
       startTransition(async () => {
         setOptimisticNotes((known) => [...known, { id: `new-${t}`, reel_id: reelId, t, text, by_name: "You", at: new Date().toISOString() }].sort((a, b) => a.t - b.t));
-        const result = await addNoteAction(reelId, t, text);
+        const result = await addNoteAction(reelId, t, text).catch(() => ({ error: OFFLINE }));
         if ("error" in result) toast(result.error, { tone: "fail" });
         else toast(`Note added at ${formatTimecode(t)}`, { tone: "ok" });
       });
@@ -213,7 +250,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
     (status: ReelReview["status"], note: string) => {
       startTransition(async () => {
         setOptimisticReview({ status, note: note || null, by_name: "You", at: new Date().toISOString() });
-        const result = await reviewReelAction(reelId, status, note);
+        const result = await reviewReelAction(reelId, status, note).catch(() => ({ error: OFFLINE }));
         if ("error" in result) toast(result.error, { tone: "fail" });
         else toast(status === "approved" ? "Approved" : "Changes requested", { tone: "ok" });
       });
@@ -343,7 +380,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
   }, [transport, clock, stops, seek]);
 
   const clearRange = useCallback(() => setRange({ in: null, out: null }), []);
-  const sceneStatusNode = <SceneChip state={sceneState} />;
+  const sceneStatusNode = <SceneChip state={sceneState} reelId={reelId} readOnly={readOnly} />;
 
   return (
     <div className="studio" data-theme="dark">
@@ -381,7 +418,14 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
                   </button>
                 </div>
                 <div className="st-seg" role="group" aria-label="Auto-reframe preview">
-                  <button type="button" aria-pressed={reframe === null} onClick={() => setReframe(null)}>
+                  <button
+                    type="button"
+                    aria-pressed={reframe === null}
+                    onClick={() => {
+                      setReframe(null);
+                      setScaleUp(false);
+                    }}
+                  >
                     9:16
                   </button>
                   {(["1:1", "4:5"] as const).map((aspect) => (
@@ -410,6 +454,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
                 brandFont={brandFont}
                 labelSpans={labelSpans}
                 wipe={wipe}
+                wipeStart={wipeStart}
                 reframe={reframe}
                 scaleUp={scaleUp}
                 onToggle={transport.toggle}
@@ -436,6 +481,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
             onClearRange={clearRange}
             loop={loop}
             status={sceneStatusNode}
+            emptyNote={EMPTY_NOTE[sceneState.status] ?? null}
           />
         </div>
         <SidePanel
@@ -457,7 +503,7 @@ export function Studio({ reelId, details, job, report, brandFont, review, notes,
           hot={hot}
           onHot={setHot}
           onChoose={chooseMoment}
-          onSeek={seek}
+          onSeek={seekFromSide}
           onShowFix={showFix}
           onDone={setDone}
           onStill={downloadStill}
@@ -480,7 +526,7 @@ function saveBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function SceneChip({ state }: { state: SceneState }) {
+function SceneChip({ state, reelId, readOnly }: { state: SceneState; reelId: string; readOnly: boolean }) {
   const seconds = useElapsed(state.status === "reading" ? state.since : null);
   if (state.status === "reading") {
     return (
@@ -500,10 +546,22 @@ function SceneChip({ state }: { state: SceneState }) {
       </span>
     );
   }
-  if (state.status === "failed") return <span className="st-scene-chip st-scene-failed">Tracking failed{state.error ? `: ${state.error}` : ""}</span>;
-  if (state.status === "none") return <span className="st-scene-chip">No tracking for this Reel</span>;
+  if (state.status === "failed" || state.status === "none") {
+    return (
+      <>
+        <span className={cn("st-scene-chip", state.status === "failed" && "st-scene-failed")}>{state.status === "failed" ? `Tracking failed${state.error ? `: ${state.error}` : ""}` : "No tracking for this Reel"}</span>
+        <RetryForm reelId={reelId} readOnly={readOnly} label="Read again" />
+      </>
+    );
+  }
   return null;
 }
+
+const EMPTY_NOTE: Partial<Record<SceneStatus, string>> = {
+  reading: "These tracks and the layers above fill in when tracking finishes. Everything else works now.",
+  none: "This Reel was read before tracking existed. Read it again to get these tracks and the layers above.",
+  failed: "No tracks this time. The label, speech and notes below come from the report, so they're still here.",
+};
 
 function TopBar({
   reelId,
@@ -549,7 +607,7 @@ function TopBar({
   };
   const share = async () => {
     const url = shareToken ? `${window.location.origin}/share/${shareToken}` : null;
-    const answer = url ? { url } : await createShareLinkAction(reelId);
+    const answer = url ? { url } : await createShareLinkAction(reelId).catch(() => ({ error: OFFLINE }));
     if ("error" in answer) {
       toast(answer.error, { tone: "fail" });
       return;
@@ -564,11 +622,12 @@ function TopBar({
         <ArrowLeft size={15} aria-hidden="true" />
       </Link>
       <div className="st-top-title">
+        <span className="st-top-name">Finer details</span>
         <span className="st-file" title={filename}>
           {filename}
         </span>
         {details?.brand.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={details.brand.logo} alt={details.brand.name} className="st-kit-logo" />
         ) : null}
         <StatusBadge status={verdictStatus(report.verdict)} />
@@ -584,7 +643,7 @@ function TopBar({
         {canReview ? (
           <>
             <Gated readOnly={readOnly}>
-              <Button size="compact-sm" disabled={readOnly} onClick={() => onAnswer("approved", "")}>
+              <Button size="compact-sm" disabled={readOnly || review?.status === "approved"} onClick={() => onAnswer("approved", "")}>
                 <Check size={14} aria-hidden="true" />
                 Approve
               </Button>
@@ -751,7 +810,7 @@ const InspectorPanel = memo(function InspectorPanel({ ix, report, clock, sceneSt
       ),
     ],
     ["Label", r.labelOn ? "On screen" : "Not on screen"],
-    ["Needs", `${formatHold(needed)} hold`],
+    ["Hold needed", formatHold(needed)],
     [
       "Clause",
       r.clause ? (

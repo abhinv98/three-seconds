@@ -36,7 +36,7 @@ export default async function StudioDev({ searchParams }: { searchParams: Promis
         done={[]}
         readOnly={query.readOnly === "1"}
         back={{ href: "/dashboard/reels", label: "Reels" }}
-        urls={{ scene: `/studio-dev/scene${query.scene ? `?state=${query.scene}` : ""}`, video: "/studio-dev/video" }}
+        urls={{ scene: `/studio-dev/scene${query.scene ? `?state=${query.scene}${query.at ? `&at=${query.at}` : ""}` : ""}`, video: "/studio-dev/video" }}
         products={products}
         caption={caption}
         banner={query.readOnly === "1" ? "Sample brand folder. Not run by or affiliated with Meta." : null}
