@@ -171,6 +171,46 @@ export async function createAppTables() {
       cost_usd   REAL,
       started_at TEXT NOT NULL
     );
+    -- The brand's answer on a Reel. One row: a new answer replaces the last.
+    CREATE TABLE IF NOT EXISTS reel_review (
+      reel_id TEXT PRIMARY KEY REFERENCES reel(id) ON DELETE CASCADE,
+      status  TEXT NOT NULL CHECK (status IN ('approved', 'changes')),
+      note    TEXT,
+      by_name TEXT NOT NULL,
+      at      TEXT NOT NULL
+    );
+    -- A note pinned to a time on a Reel. author_id decides who may delete it.
+    CREATE TABLE IF NOT EXISTS reel_note (
+      id        TEXT PRIMARY KEY,
+      reel_id   TEXT NOT NULL REFERENCES reel(id) ON DELETE CASCADE,
+      author_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+      t         REAL NOT NULL,
+      text      TEXT NOT NULL,
+      by_name   TEXT NOT NULL,
+      at        TEXT NOT NULL
+    );
+    -- A finer-details moment someone has marked done. moment_id is the id inside reel_details' JSON.
+    CREATE TABLE IF NOT EXISTS reel_moment_done (
+      reel_id   TEXT NOT NULL REFERENCES reel(id) ON DELETE CASCADE,
+      moment_id TEXT NOT NULL,
+      at        TEXT NOT NULL,
+      PRIMARY KEY (reel_id, moment_id)
+    );
+    -- The one public link to a Reel: 144 random bits. Revoking deletes the row, so the token stops working at once.
+    CREATE TABLE IF NOT EXISTS reel_share (
+      reel_id    TEXT PRIMARY KEY REFERENCES reel(id) ON DELETE CASCADE,
+      token      TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL
+    );
+    -- The post's caption, pasted in, and whether it goes up with Instagram's Paid partnership tag.
+    CREATE TABLE IF NOT EXISTS reel_caption (
+      reel_id           TEXT PRIMARY KEY REFERENCES reel(id) ON DELETE CASCADE,
+      caption           TEXT NOT NULL,
+      uses_platform_tag INTEGER NOT NULL,
+      by_name           TEXT NOT NULL,
+      at                TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS reel_note_reel ON reel_note(reel_id, t);
     CREATE INDEX IF NOT EXISTS reel_owner ON reel(owner_id, created_at);
     CREATE INDEX IF NOT EXISTS reel_brand ON reel(brand_id, created_at);
     CREATE INDEX IF NOT EXISTS connection_brand ON connection(brand_id);
@@ -178,4 +218,9 @@ export async function createAppTables() {
   // Local databases made before videos moved to Blob kept them on disk instead.
   const columns = await all<{ name: string }>("SELECT name FROM pragma_table_info('reel')");
   if (!columns.some((column) => column.name === "video_url")) await run("ALTER TABLE reel ADD COLUMN video_url TEXT");
+  // A filmstrip captured in the browser at upload (lib/poster.ts), served by /api/reels/[id]/poster.
+  if (!columns.some((column) => column.name === "poster")) await run("ALTER TABLE reel ADD COLUMN poster TEXT");
+  // What a brand kit read is doing right now, as JSON (lib/brand-kit.ts).
+  const kitColumns = await all<{ name: string }>("SELECT name FROM pragma_table_info('brand_kit')");
+  if (!kitColumns.some((column) => column.name === "progress")) await run("ALTER TABLE brand_kit ADD COLUMN progress TEXT");
 }
