@@ -25,6 +25,13 @@ describe("the real sample caption", () => {
     expect(lines.some((l) => !l.ok && l.text.includes("#RayBanMetaPartner"))).toBe(true);
     expect(lines.some((l) => !l.ok && l.text.includes(asciClause("ASCI-IG 1.2d").text))).toBe(true);
   });
+
+  it("leads with the tag when it's on, and quotes the list once", () => {
+    const { lines } = checkCaption(SAMPLE, true);
+    expect(lines[0].ok).toBe(true);
+    expect(lines[0].text).toContain("Paid partnership tag");
+    expect(lines.filter((l) => l.text.includes(asciClause("ASCI-IG 1.3a").text))).toHaveLength(1);
+  });
 });
 
 describe("permitted words", () => {

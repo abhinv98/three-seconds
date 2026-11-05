@@ -38,13 +38,11 @@ export function ReviewBadge({ status, className }: { status: ReviewStatus | null
 interface ReviewPanelProps {
   reelId: string;
   review: ReelReview | null;
-  /** The brand that owns the folder. A creator sees the status and the note, and no buttons. */
-  canReview: boolean;
-  /** The public sample: the status shows, and the answer can't change. */
+  /** A creator, or the public sample: the status and the note show, with no buttons. */
   readOnly?: boolean;
 }
 
-export function ReviewPanel({ reelId, review, canReview, readOnly = false }: ReviewPanelProps) {
+export function ReviewPanel({ reelId, review, readOnly = false }: ReviewPanelProps) {
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
   const [pending, start] = useTransition();
@@ -62,7 +60,6 @@ export function ReviewPanel({ reelId, review, canReview, readOnly = false }: Rev
     });
   }
 
-  const editable = canReview && !readOnly;
   return (
     <Panel title="Review" action={<ReviewBadge status={review?.status} />}>
       <div className="grid gap-3 px-5 py-4">
@@ -74,10 +71,10 @@ export function ReviewPanel({ reelId, review, canReview, readOnly = false }: Rev
             </p>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">{canReview ? "Approve this Reel, or say what should change. The creator sees your answer." : "The brand hasn't answered yet."}</p>
+          <p className="text-sm text-muted-foreground">{readOnly ? "The brand hasn't answered yet." : "Approve this Reel, or say what should change. The creator sees your answer."}</p>
         )}
 
-        {editable ? (
+        {readOnly ? null : (
           <div className="flex flex-wrap items-center gap-2">
             <Button size="compact" disabled={pending} onClick={() => answer("approved", "")}>
               <Check size={15} aria-hidden="true" />
@@ -88,9 +85,9 @@ export function ReviewPanel({ reelId, review, canReview, readOnly = false }: Rev
               Request changes
             </Button>
           </div>
-        ) : null}
+        )}
 
-        {editable && asking ? (
+        {!readOnly && asking ? (
           <form
             className="grid gap-2 transition-opacity duration-150 ease-out starting:opacity-0"
             onSubmit={(event) => {

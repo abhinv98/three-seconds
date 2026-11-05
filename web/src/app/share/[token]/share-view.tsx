@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { textColourOn } from "@/app/dashboard/tools/label";
 import { when } from "@/components/account/bits";
 import { FixCard } from "@/components/fix-card";
 import { CaptionPanel } from "@/components/review/caption-panel";
@@ -11,6 +12,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { TimecodeChip } from "@/components/timecode-chip";
 import { Timeline, type TimelineLane } from "@/components/timeline";
 import { formatHold, requiredHold } from "@/lib/asci";
+import { contrast } from "@/lib/daypart";
 import { boxAt, extent, inSpan, type Box, type Moment, type MomentKind, type Source } from "@/lib/details";
 import { formatSeconds, formatTimecode } from "@/lib/format";
 import { bySeverity, verdictStatus, type Report } from "@/lib/report";
@@ -127,7 +129,7 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
             <p className="min-w-0 truncate text-sm font-semibold text-muted-foreground">{brand.name ? `From ${brand.name}` : "A Reel checked with Three Seconds"}</p>
           </div>
           <h1 className="mt-3 text-[34px] leading-[1.05] font-extrabold tracking-[-0.03em] text-balance sm:text-[44px]">
-            {review ? HEADLINE[review.status] : brand.name ? "Waiting for the brand" : "The check"}
+            {review ? HEADLINE[review.status] : brand.name ? "Waiting for the brand" : headline}
           </h1>
           {review?.note ? <p className="mt-3 max-w-[64ch] text-[17px] leading-snug text-pretty whitespace-pre-line">{review.note}</p> : null}
           {review ? <p className="mt-2 text-[13px] text-muted-foreground">{when(review.at)}</p> : null}
@@ -193,7 +195,7 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
                 className="absolute inset-0 h-full w-full object-cover"
               />
             )}
-            {details ? <Overlay videoRef={videoRef} details={details} selected={selected} withFixes={withFixes} brandFont={brandFont} /> : null}
+            {details ? <Overlay videoRef={videoRef} details={details} selected={selected} done={done} withFixes={withFixes} brandFont={brandFont} /> : null}
           </div>
 
           <Timeline
@@ -206,7 +208,7 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
             summary={timelineSummary(report)}
           />
           <p className="text-[13px] text-muted-foreground">
-            Measured from the file: {label ? `the label holds ${formatSeconds(label.longest_continuous_s)} at its longest` : "no label found"}, and ASCI needs {formatHold(needed.seconds)} for a Reel this long.
+            Measured from the file: {label?.spans.length ? `the label holds ${formatSeconds(label.longest_continuous_s)} at its longest` : "no label found"}. ASCI needs {formatHold(needed.seconds)} for a Reel this long.
           </p>
         </section>
 
@@ -266,7 +268,7 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
               <h2 id="checks-heading" className="text-[22px] font-bold tracking-[-0.02em]">
                 The ASCI check
               </h2>
-              <p className="text-[13px] text-muted-foreground">{report.verdict === "PASS" ? "Good to post" : headline}</p>
+              <p className="text-[13px] text-muted-foreground">{checks.length} rules, worst first</p>
             </div>
             <ol className="divide-y divide-border">
               {checks.map((check) => (
@@ -413,11 +415,12 @@ function useFrameTime(videoRef: RefObject<HTMLVideoElement | null>) {
 }
 
 /** Decorative: the list beside the player carries everything these marks say. */
-function Overlay({ videoRef, details, selected, withFixes, brandFont }: { videoRef: RefObject<HTMLVideoElement | null>; details: SharedDetails; selected: string; withFixes: boolean; brandFont: string }) {
+function Overlay({ videoRef, details, selected, done, withFixes, brandFont }: { videoRef: RefObject<HTMLVideoElement | null>; details: SharedDetails; selected: string; done: string[]; withFixes: boolean; brandFont: string }) {
   const time = useFrameTime(videoRef);
   const { moments, accent, ink } = details;
+  const noteColour = contrast(accent, ink) >= 4.5 ? accent : "#ffffff";
   const outlined = moments.flatMap((moment, i) => {
-    const span = moment.spans.find((s) => inSpan(s, time));
+    const span = moment.id === selected || !done.includes(moment.id) ? moment.spans.find((s) => inSpan(s, time)) : undefined;
     return span ? [{ moment, n: i + 1, span }] : [];
   });
   const fixes = moments.flatMap((moment) => (moment.fix && moment.fix.spans.some((s) => inSpan(s, time)) ? [{ id: moment.id, fix: moment.fix }] : []));
@@ -432,7 +435,7 @@ function Overlay({ videoRef, details, selected, withFixes, brandFont }: { videoR
                   fontFamily: brandFont,
                   fontSize: "clamp(9px, 3.1cqw, 15px)",
                   background: fix.style === "pill" ? accent : ink,
-                  color: fix.style === "pill" ? ink : fix.style === "label" ? "#ffffff" : accent,
+                  color: fix.style === "pill" ? textColourOn(accent, [ink]) : fix.style === "label" ? "#ffffff" : noteColour,
                 }}
               >
                 {fix.text}

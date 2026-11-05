@@ -141,6 +141,11 @@ export function checkCaption(caption: string, usesPlatformTag: boolean): Caption
   const best = clear[0] ?? hits[0];
 
   let wrongLanguage = false;
+  // With the tag on, the tag is what carries the verdict, so it comes first.
+  if (usesPlatformTag) {
+    const listQuoted = Boolean(text && !best);
+    lines.push({ ok: true, text: `Instagram's Paid partnership tag is on ASCI's list too${listQuoted ? " (1.3a)" : ""}, and it shows above the caption.${listQuoted ? "" : ` ${quoted("ASCI-IG 1.3a")}`}` });
+  }
   if (!text) {
     lines.push({ ok: false, text: "No caption here yet." });
   } else if (!best) {
@@ -162,11 +167,10 @@ export function checkCaption(caption: string, usesPlatformTag: boolean): Caption
     if (wrongLanguage) lines.push({ ok: false, text: `The label is only in Hindi and the caption is mostly not. ${quoted("ASCI-IG 1.3b")}` });
   }
 
-  if (usesPlatformTag) {
-    lines.push({ ok: true, text: `Instagram's Paid partnership tag is on ASCI's list too, and it shows above the caption. ${quoted("ASCI-IG 1.3a")}` });
-    if (!best) lines.push({ ok: false, text: `Worth adding a word of your own to the first line as well. ${quoted("ASCI-IG 1.2d")}` });
-  } else {
+  if (!usesPlatformTag) {
     lines.push({ ok: false, text: `No Paid partnership tag. ${quoted("ASCI-IG 1.2d")}` });
+  } else if (!best) {
+    lines.push({ ok: false, text: `Worth adding a word of your own to the first line as well. ${quoted("ASCI-IG 1.2d")}` });
   }
 
   const verdict = usesPlatformTag ? "PASS" : !best ? "FAIL" : clear.length && !wrongLanguage ? "PASS" : "REVIEW";
