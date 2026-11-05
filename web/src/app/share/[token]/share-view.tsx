@@ -56,7 +56,9 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
   const moments = details?.moments ?? [];
   const [selected, setSelected] = useState(moments[0]?.id ?? "");
   const [withFixes, setWithFixes] = useState(false);
-  const { duration_s: duration, width, height, filename } = report.video;
+  const { duration_s: duration, filename } = report.video;
+  const width = report.video.width || 9;
+  const height = report.video.height || 16;
 
   // Coarse time is enough for the list; the overlay follows every frame itself.
   useEffect(() => {
@@ -123,7 +125,7 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
             {brand.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={brand.logo} alt="" width={32} height={32} className="size-8 shrink-0 rounded-[6px] bg-muted object-contain" />
             ) : null}
             <p className="min-w-0 truncate text-sm font-semibold text-muted-foreground">{brand.name ? `From ${brand.name}` : "A Reel checked with Three Seconds"}</p>
@@ -316,7 +318,7 @@ function MomentCard({
         aria-label={`Show change ${n} on the Reel: ${moment.title}`}
         className="relative h-[100px] w-14 overflow-hidden rounded-[6px] bg-muted transition-transform duration-150 ease-out active:scale-[0.97]"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- a 56px still from the Reel */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={moment.thumb} alt="" className="size-full object-cover" loading="lazy" />
       </button>
       <div className="min-w-0">

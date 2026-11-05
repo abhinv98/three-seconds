@@ -101,7 +101,7 @@ export default async function BriefPage({ params }: { params: Promise<{ code: st
           </div>
           <div className="flex items-center gap-4">
             {kit?.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element -- a small data: URL saved with the kit
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={kit.logo} alt="" width={64} height={64} className="size-16 shrink-0 rounded-[10px] bg-card object-contain [print-color-adjust:exact] print:size-11" />
             ) : null}
             <div className="min-w-0">

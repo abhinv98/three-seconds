@@ -17,13 +17,12 @@ export interface LabelKit {
   id: string;
   name: string;
   colors: { hex: string; name: string }[];
-  fonts: string[];
   webFonts: string[];
 }
 
 const PLAIN_COLOURS = [
-  { hex: "#121212", name: "Ink" },
   { hex: "#ffffff", name: "White" },
+  { hex: "#121212", name: "Ink" },
   { hex: "#ea4e12", name: "Orange" },
 ];
 
@@ -41,11 +40,13 @@ const canvasFont = (size: number, family: string | null) => {
   return `700 ${size}px ${family ? `"${family.replace(/["\\]/g, "")}", ` : ""}${body}`;
 };
 
+let measurer: CanvasRenderingContext2D | null = null;
+
 function measure(word: string, font: string) {
-  const context = document.createElement("canvas").getContext("2d");
-  if (!context) return 0;
-  context.font = font;
-  return context.measureText(word).width;
+  measurer ??= document.createElement("canvas").getContext("2d");
+  if (!measurer) return 0;
+  measurer.font = font;
+  return measurer.measureText(word).width;
 }
 
 const hexName = (colours: { hex: string; name: string }[], hex: string) => colours.find((c) => c.hex === hex)?.name ?? hex;
@@ -83,7 +84,7 @@ export function LabelMaker({ kits }: { kits: LabelKit[] }) {
     };
   }, [font, word]);
 
-  const textWidth = useMemo(() => (font ? measure(word, font) : 0), [font, word, fontsSettled]); // eslint-disable-line react-hooks/exhaustive-deps -- fontsSettled says the font changed under the same name
+  const textWidth = font ? measure(word, font) : 0;
   const { width, height, radius, padX } = labelSize(textWidth, px);
   const { x, y } = clampPosition(spot.x, spot.y, width, height);
   const box = labelBox(x, y, width, height);
@@ -246,9 +247,6 @@ export function LabelMaker({ kits }: { kits: LabelKit[] }) {
         </div>
 
         <div className="order-first grid content-start justify-items-center gap-3 min-[820px]:sticky min-[820px]:top-4 min-[820px]:order-none min-[820px]:self-start">
-          {kit?.webFonts.map((font2) => (
-            <link key={font2} rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(font2).replace(/%20/g, "+")}:wght@700&display=swap`} precedence="default" />
-          ))}
           <div ref={frameRef} className="relative aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-[10px] border border-border bg-viewer-plate select-none min-[820px]:max-w-[280px]" aria-label="Preview over a blank Reel frame" role="group">
             <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[13px] font-semibold text-viewer-plate-foreground opacity-40">Your Reel</p>
             {zones.map((zone) => (
@@ -271,7 +269,7 @@ export function LabelMaker({ kits }: { kits: LabelKit[] }) {
                 grab.current = null;
               }}
               onKeyDown={onKeyDown}
-              className={cn("absolute cursor-grab touch-none rounded-[4px] outline-offset-2 active:cursor-grabbing", covered && "outline-2 outline-fail")}
+              className={cn("absolute cursor-grab touch-none rounded-[4px] outline outline-offset-2 active:cursor-grabbing", covered ? "outline-2 outline-fail" : "outline-1 outline-white/30")}
               style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${box[2] * 100}%`, height: `${box[3] * 100}%` }}
             />
           </div>

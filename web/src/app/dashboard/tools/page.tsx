@@ -18,15 +18,16 @@ export default async function ToolsPage() {
     await Promise.all(
       brands.map(async ({ id, name }): Promise<LabelKit | null> => {
         const data = (await brandKits.get(id))?.data;
-        return data ? { id, name: data.name || name, colors: data.colors, fonts: data.fonts, webFonts: data.web_fonts } : null;
+        return data ? { id, name: data.name || name, colors: data.colors, webFonts: data.web_fonts } : null;
       }),
     )
   ).filter((kit) => kit !== null);
 
   return (
     <div className="grid gap-6">
-      {kits.flatMap((kit) => kit.webFonts).map((font) => (
-        <link key={font} rel="stylesheet" href={fontCss(font)} precedence="default" />
+      {/* The label is bold. A family with no bold answers that request with an error and draws as a thickened regular. */}
+      {kits.flatMap((kit) => kit.webFonts).flatMap((font) => [fontCss(font), fontCss(font).replace("&display", ":wght@700&display")]).map((href) => (
+        <link key={href} rel="stylesheet" href={href} precedence="default" />
       ))}
       <PageHeader title="Label maker" description="How long the label has to hold, and a label in the brand's colours and type to put on the Reel." />
       <HoldCalculator />
@@ -35,7 +36,7 @@ export default async function ToolsPage() {
         <Panel title="Creator brief">
           <div className="grid gap-3 p-5">
             <p className="max-w-[68ch] text-sm text-pretty text-muted-foreground">
-              A public page to send your creators before they film: the rules, the label, your colours and type, what to lean on and what to avoid, and a link to join. It prints on two pages.
+              A public page to send your creators before they film: the rules, the label, your colours and type, what to lean on and what to avoid, and a link to join. Send the link, or print it.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-[260px] flex-1">

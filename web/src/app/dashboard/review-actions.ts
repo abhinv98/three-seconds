@@ -32,10 +32,7 @@ async function open(reelId: string): Promise<{ viewer: Member; reel: Reel } | { 
 
 const ownsFolder = (viewer: Member, reel: { brand_id: string | null }) => viewer.brand !== null && reel.brand_id === viewer.brand.id;
 
-function refresh(reelId: string) {
-  revalidatePath("/dashboard", "layout");
-  revalidatePath(`/dashboard/reels/${reelId}`, "layout");
-}
+const refresh = () => revalidatePath("/dashboard", "layout");
 
 export async function reviewReelAction(reelId: string, status: ReviewStatus, note: string): Promise<ActionResult> {
   const opened = await open(reelId);
@@ -55,7 +52,7 @@ export async function reviewReelAction(reelId: string, status: ReviewStatus, not
     viewer.profile.display_name,
     new Date().toISOString(),
   );
-  refresh(reel.id);
+  refresh();
   return { ok: true };
 }
 
@@ -78,7 +75,7 @@ export async function addNoteAction(reelId: string, t: number, text: string): Pr
     viewer.profile.display_name,
     new Date().toISOString(),
   );
-  refresh(reel.id);
+  refresh();
   return { ok: true };
 }
 
@@ -90,7 +87,7 @@ export async function deleteNoteAction(reelId: string, noteId: string): Promise<
   if (!note) return { error: "That note is already gone." };
   if (note.author_id !== viewer.user.id && !ownsFolder(viewer, reel)) return { error: "Only the person who wrote a note, or the brand, can delete it." };
   await run("DELETE FROM reel_note WHERE id = ?", String(noteId));
-  refresh(reel.id);
+  refresh();
   return { ok: true };
 }
 
@@ -128,7 +125,7 @@ export async function createShareLinkAction(reelId: string): Promise<{ url: stri
     randomBytes(18).toString("base64url"),
     new Date().toISOString(),
   );
-  refresh(reel.id);
+  refresh();
   return { url: `${await siteOrigin()}/share/${await shareTokenFor(reel.id)}` };
 }
 
@@ -136,7 +133,7 @@ export async function revokeShareLinkAction(reelId: string): Promise<ActionResul
   const opened = await open(reelId);
   if ("error" in opened) return opened;
   await run("DELETE FROM reel_share WHERE reel_id = ?", opened.reel.id);
-  refresh(opened.reel.id);
+  refresh();
   return { ok: true };
 }
 
@@ -153,6 +150,6 @@ export async function saveCaptionAction(reelId: string, caption: string, usesPla
     viewer.profile.display_name,
     new Date().toISOString(),
   );
-  refresh(reel.id);
+  refresh();
   return { ok: true };
 }
