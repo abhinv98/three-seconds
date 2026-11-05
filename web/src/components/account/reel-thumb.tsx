@@ -1,7 +1,7 @@
 "use client";
 
 import { Film } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { POSTER_TILES } from "@/lib/poster";
 import { cn } from "@/lib/utils";
 
@@ -13,12 +13,6 @@ export function ReelThumb({ reelId, hasPoster, scrub = false, className }: { ree
   const [source, setSource] = useState<"poster" | "video" | "none">(hasPoster ? "poster" : "video");
   const strip = useRef<HTMLImageElement>(null);
   const marker = useRef<HTMLSpanElement>(null);
-
-  // An image that failed before hydration never fires onError for us.
-  useEffect(() => {
-    const img = strip.current;
-    if (img?.complete && img.naturalWidth === 0) queueMicrotask(() => setSource("video"));
-  }, []);
 
   const tile = (i: number) => {
     if (strip.current) strip.current.style.transform = `translateX(${(-i * 100) / POSTER_TILES}%)`;

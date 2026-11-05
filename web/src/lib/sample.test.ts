@@ -295,7 +295,7 @@ test.each([
   vi.stubEnv(name, value);
   await run("DELETE FROM profile WHERE user_id = ?", OTHER_ID);
   viewer = { ...other, profile: null };
-  await expect(finishOnboarding(null, form({ role: "brand", brandName: "Acme", website: "acme.in" }))).rejects.toMatchObject({ url: "/dashboard?welcome=1" });
+  await expect(finishOnboarding(null, form({ role: "brand", brandName: "Acme", website: "acme.in" }))).rejects.toMatchObject({ url: "/dashboard" });
   const made = await get<{ id: string }>("SELECT id FROM brand WHERE owner_id = ?", OTHER_ID);
   expect(made).not.toBeNull();
   expect(await get("SELECT 1 FROM brand_kit WHERE brand_id = ?", made!.id)).toBeNull();

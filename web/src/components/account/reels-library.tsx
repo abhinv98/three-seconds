@@ -2,12 +2,13 @@
 
 import { LayoutGrid, List, Search, X } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ReelStatus, when } from "@/components/account/bits";
 import { ReelThumb } from "@/components/account/reel-thumb";
 import { ReviewBadge } from "@/components/review/review-panel";
 import { Button } from "@/components/ui/button";
-import { filterReels, libraryUrl, NO_FILTER, type LibraryQuery, type LibraryReel, type SortKey, type StateFilter, type VerdictWord } from "@/lib/reel-search";
+import { filterReels, libraryUrl, NO_FILTER, parseLibraryQuery, type LibraryQuery, type LibraryReel, type SortKey, type StateFilter, type VerdictWord } from "@/lib/reel-search";
 import { cn } from "@/lib/utils";
 
 const VERDICTS: { value: VerdictWord | ""; word: string }[] = [
@@ -19,16 +20,17 @@ const VERDICTS: { value: VerdictWord | ""; word: string }[] = [
 
 const SELECT = "h-8 max-w-full min-w-0 rounded-[6px] border border-border bg-card px-2 text-[13px] font-semibold";
 
-export function ReelsLibrary({ reels, brandView, initial, initialView }: { reels: LibraryReel[]; brandView: boolean; initial: LibraryQuery; initialView: "grid" | "list" }) {
-  const [query, setQuery] = useState(initial);
-  const [view, setView] = useState(initialView);
+export function ReelsLibrary({ reels, brandView }: { reels: LibraryReel[]; brandView: boolean }) {
+  const params = useSearchParams();
+  const [query, setQuery] = useState(() => parseLibraryQuery(params));
+  const [view, setView] = useState<"grid" | "list">(params.get("view") === "list" ? "list" : "grid");
 
   const update = (next: Partial<LibraryQuery>, nextView = view) => {
     const merged = { ...query, ...next };
     setQuery(merged);
     setView(nextView);
     // Into the URL with no server round trip, so Back from a Reel returns to this exact view.
-    window.history.replaceState(null, "", libraryUrl(merged, nextView));
+    window.history.replaceState(null, "", `${window.location.pathname}${libraryUrl(merged, nextView)}`);
   };
 
   const shown = useMemo(() => filterReels(reels, query), [reels, query]);

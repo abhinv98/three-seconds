@@ -60,8 +60,7 @@ test("sorting: arrival is when it was sent, and worst first leaves unfinished Re
 test("the URL round trips, and junk in it is ignored", () => {
   const query = { q: "beach", verdict: "FAIL", state: "waiting", creator: "abc", sort: "worst" } as const;
   const url = libraryUrl(query, "list");
-  const parsed = parseLibraryQuery(Object.fromEntries(new URLSearchParams(url)));
-  expect(parsed).toEqual(query);
-  expect(parseLibraryQuery({ verdict: "NOPE", state: ["x"], sort: "<script>" })).toEqual(NO_FILTER);
-  expect(libraryUrl(NO_FILTER, "grid")).toBe("?");
+  expect(parseLibraryQuery(new URLSearchParams(url))).toEqual(query);
+  expect(parseLibraryQuery(new URLSearchParams("verdict=NOPE&state=x&sort=%3Cscript%3E"))).toEqual(NO_FILTER);
+  expect(libraryUrl(NO_FILTER, "grid")).toBe("");
 });

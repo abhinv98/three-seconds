@@ -174,7 +174,7 @@ export function Questionnaire({ next, name, preset }: { next: string; name: stri
             </p>
           ) : null}
           <div className="flex items-center gap-3 pt-1">
-            <Button type="submit" size={role === "brand" ? "md" : "compact"} disabled={pending || (role === "brand" && !site)}>
+            <Button type="submit" size={role === "brand" ? "md" : "compact"} disabled={pending}>
               {pending ? "Setting up…" : role === "brand" ? "Build my brand folder" : "Set up my account"}
               {role === "brand" ? <ArrowRight size={17} aria-hidden="true" /> : null}
             </Button>
@@ -194,7 +194,7 @@ function RoleCard({ icon, title, body, onPick }: { icon: React.ReactNode; title:
     <button
       type="button"
       onClick={onPick}
-      className="group grid gap-3 rounded-[6px] border border-border bg-card p-5 text-left transition-[border-color,translate] duration-[120ms] ease-out hover:border-foreground/40 active:translate-y-px"
+      className="group grid gap-3 rounded-[6px] border border-border bg-card p-5 text-left transition-[border-color,scale] duration-[120ms] ease-out hover:border-foreground/40 active:scale-[0.97]"
     >
       <span className="grid size-10 place-items-center rounded-[6px] bg-foreground text-background">{icon}</span>
       <span className="text-[17px] font-bold tracking-[-0.01em]">{title}</span>

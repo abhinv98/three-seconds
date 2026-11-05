@@ -72,11 +72,8 @@ export function filterReels(reels: LibraryReel[], query: LibraryQuery): LibraryR
 const pick = <T extends string>(value: string | null | undefined, allowed: readonly T[], fallback: T): T => (allowed.includes(value as T) ? (value as T) : fallback);
 
 /** The library's state from its URL, so a link or the Back button brings the same view back. Anything unknown is ignored. */
-export function parseLibraryQuery(params: Record<string, string | string[] | undefined>): LibraryQuery {
-  const one = (key: string) => {
-    const value = params[key];
-    return typeof value === "string" ? value : "";
-  };
+export function parseLibraryQuery(params: { get(key: string): string | null }): LibraryQuery {
+  const one = (key: string) => params.get(key) ?? "";
   return {
     q: one("q").slice(0, 100),
     verdict: pick(one("verdict"), ["FAIL", "REVIEW", "PASS", ""], ""),
@@ -95,5 +92,5 @@ export function libraryUrl(query: LibraryQuery, view: "grid" | "list"): string {
   if (query.sort !== "newest") params.set("sort", query.sort);
   if (view !== "grid") params.set("view", view);
   const text = params.toString();
-  return text ? `?${text}` : "?";
+  return text ? `?${text}` : "";
 }

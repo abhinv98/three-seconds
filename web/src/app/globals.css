@@ -311,7 +311,7 @@
   transition: transform 140ms var(--ease-out);
 }
 .reel-card:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 @media (hover: hover) and (pointer: fine) {
   .filter-chip:not([aria-pressed="true"]):hover {
