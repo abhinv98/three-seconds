@@ -4,6 +4,9 @@ import { asciClause } from "@/lib/asci";
 // The word lists are worker/pipeline/asci.py's, matched the same way, so a word that counts on screen counts here too;
 // caption.test.ts fails if they drift apart. No database: the panel runs this in the browser as you type.
 
+/** Instagram's limit on a caption. */
+export const CAPTION_LIMIT = 2200;
+
 /** For the label maker: 1.3a's words as a label's text, then their Hindi equivalents (1.3b allows the ad's own language). */
 export const LABEL_WORDS = ["Ad", "Advertisement", "Sponsored", "Paid partnership", "Partnership", "Collaboration", "Affiliate", "Free gift", "Employee"];
 export const HINDI_LABEL_WORDS = ["विज्ञापन", "प्रायोजित", "साझेदारी", "भागीदारी", "सहयोग", "एफ़िलिएट", "मुफ़्त उपहार", "कर्मचारी", "सशुल्क प्रचार"];

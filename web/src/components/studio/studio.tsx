@@ -112,12 +112,14 @@ export interface StudioProps {
   caption?: ReelCaption | null;
   /** The shell's banner sits under the Studio, so the sample's label is shown again here. */
   banner?: string | null;
+  /** Changes when a read was just started from this page, so the scene is fetched again. */
+  sceneRead?: string;
 }
 
-export function Studio({ reelId, details, job, report, brandFont, review, notes, done, readOnly, shareToken, back, products, canReview = true, caption = null, banner = null }: StudioProps) {
+export function Studio({ reelId, details, job, report, brandFont, review, notes, done, readOnly, shareToken, back, products, canReview = true, caption = null, banner = null, sceneRead }: StudioProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [clock] = useState(createClock);
-  const sceneState = useScene(`/api/reels/${reelId}/scene`);
+  const sceneState = useScene(`/api/reels/${reelId}/scene${sceneRead ? `?read=${encodeURIComponent(sceneRead)}` : ""}`);
   const { scene } = sceneState;
   const ix = useMemo(() => (scene ? indexScene(scene) : null), [scene]);
 
@@ -695,10 +697,13 @@ function TopBar({
               <FileDown size={14} aria-hidden="true" />
               Premiere markers (CSV)
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={readOnly} onSelect={share}>
-              <Link2 size={14} aria-hidden="true" />
-              {readOnly ? "Share link: not on the public sample" : "Share link for the creator"}
-            </DropdownMenuItem>
+            {/* Only the brand gets this: the panel that shows and revokes the link is the brand's. */}
+            {canReview ? (
+              <DropdownMenuItem disabled={readOnly} onSelect={share}>
+                <Link2 size={14} aria-hidden="true" />
+                {readOnly ? "Share link: not on the public sample" : "Share link for the creator"}
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
         <button type="button" className="st-tool" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={onShowKeys}>

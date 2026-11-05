@@ -25,7 +25,18 @@ export function ReelsLibrary({ reels, brandView }: { reels: LibraryReel[]; brand
   const [query, setQuery] = useState(() => parseLibraryQuery(params));
   const [view, setView] = useState<"grid" | "list">(params.get("view") === "list" ? "list" : "grid");
 
-  const update = (next: Partial<LibraryQuery>, nextView = view) => {
+  // A link to this page (the rail, the palette) changes the URL without remounting, and then the URL wins. A change that
+  // came from update() below already matches the state, and comparing the live URL keeps fast typing from being undone.
+  const [seenParams, setSeenParams] = useState(params);
+  if (params !== seenParams) {
+    setSeenParams(params);
+    if (window.location.search !== libraryUrl(query, view)) {
+      setQuery(parseLibraryQuery(params));
+      setView(params.get("view") === "list" ? "list" : "grid");
+    }
+  }
+
+  const update =(next: Partial<LibraryQuery>, nextView = view) => {
     const merged = { ...query, ...next };
     setQuery(merged);
     setView(nextView);

@@ -8,12 +8,10 @@ import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
-import { checkCaption, combinedOutcome, type CaptionCheck } from "@/lib/caption";
+import { CAPTION_LIMIT, checkCaption, combinedOutcome, type CaptionCheck } from "@/lib/caption";
 import { verdictStatus, type Verdict } from "@/lib/report";
 import type { ReelCaption } from "@/lib/review";
 import { cn } from "@/lib/utils";
-
-const CAPTION_LIMIT = 2200;
 
 interface CaptionPanelProps {
   reelId: string;

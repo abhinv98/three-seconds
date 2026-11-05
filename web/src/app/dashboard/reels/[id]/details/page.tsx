@@ -11,8 +11,9 @@ export const metadata = { title: "Finer details" };
 // "Read again" runs the pass after its response, inside this page's function.
 export const maxDuration = 300;
 
-export default async function FinerDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function FinerDetailsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { id } = await params;
+  const { read } = await searchParams;
   const viewer = await requireMember(`/dashboard/reels/${id}/details`);
   const reel = await reelFor(viewer, id);
   if (!reel) notFound();
@@ -59,6 +60,7 @@ export default async function FinerDetailsPage({ params }: { params: Promise<{ i
         canReview={viewer.brand !== null && reel.brand_id === viewer.brand.id}
         caption={caption}
         banner={isSampleViewer(viewer) ? SAMPLE_BANNER : null}
+        sceneRead={typeof read === "string" ? read : undefined}
       />
     </>
   );

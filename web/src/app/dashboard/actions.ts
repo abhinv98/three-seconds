@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { inviteBrand, normalizeWebsite, reelFor, requireMember, sendReel } from "@/lib/account";
-import { brandKits, buildBrandKit } from "@/lib/brand-kit";
+import { brandKits, buildBrandKit, claimKitRead } from "@/lib/brand-kit";
 import { admitSpend } from "@/lib/check-reel";
 import { buildFinerDetails, finerDetails } from "@/lib/finer";
 import { requireWritable, requireWritableBrand } from "@/lib/sample";
@@ -51,7 +51,7 @@ export async function readBrandKitAction() {
   if ((await brandKits.get(brand.id))?.status !== "reading") {
     const refused = await admitSpend("brand_kit");
     if (refused) refuse(refused.error);
-    if (await brandKits.claim(brand.id)) after(() => buildBrandKit(brand));
+    if (await claimKitRead(brand.id)) after(() => buildBrandKit(brand));
   }
   revalidatePath("/dashboard");
 }
@@ -77,7 +77,9 @@ export async function finerDetailsAction(form: FormData) {
   const data = kit.data;
   const sceneStatus = (await reelScenes.get(id))?.status;
   const sceneNeeded = sceneStatus !== "done" && sceneStatus !== "reading";
-  const finerNeeded = (await finerDetails.get(id))?.status !== "reading";
+  // A retry of failed tracking must not re-read finished details: that costs money and replaces changes already reviewed.
+  const finerStatus = (await finerDetails.get(id))?.status;
+  const finerNeeded = finerStatus !== "done" && finerStatus !== "reading";
   // A read already running costs nothing more, so a second click takes no count. Only a counted click may claim, as above.
   if (finerNeeded || sceneNeeded) {
     const refused = await admitSpend("finer");
@@ -85,5 +87,6 @@ export async function finerDetailsAction(form: FormData) {
   }
   if (finerNeeded && (await finerDetails.claim(id))) after(() => buildFinerDetails({ id, filename, video_url, report }, data));
   if (sceneNeeded && (await reelScenes.claim(id))) after(() => buildScene({ id, video_url, duration_s: report.video.duration_s }, data));
-  redirect(`/dashboard/reels/${encodeURIComponent(id)}/details`);
+  // The Studio stays mounted when this lands on the page it's already on; the changed query is how it knows to ask again.
+  redirect(`/dashboard/reels/${encodeURIComponent(id)}/details?read=${Date.now()}`);
 }

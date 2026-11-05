@@ -32,6 +32,13 @@ export interface BrandKitData {
 
 export const brandKits = jobStore<BrandKitData>("brand_kit", "brand_id", "kit");
 
+/** Claims a new read. Its log starts empty, or the panel would show the last read's steps under a clock back at zero. */
+export async function claimKitRead(brandId: string): Promise<boolean> {
+  if (!(await brandKits.claim(brandId))) return false;
+  await run("UPDATE brand_kit SET progress = NULL WHERE brand_id = ?", brandId);
+  return true;
+}
+
 const LOGO_BYTES = 400_000;
 const MAX_STEPS = 24;
 

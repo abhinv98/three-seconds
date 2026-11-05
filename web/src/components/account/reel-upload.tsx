@@ -272,6 +272,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
       const order = [...first, ...times.map((_, i) => i).filter((i) => !first.includes(i))];
       let last = performance.now();
       let stuck = 0;
+      const finishPoster = () => posterReady(sprite.toDataURL("image/jpeg", 0.62));
       for (let n = 0; n < order.length; n++) {
         if (signal.aborted) return;
         const i = order[n];
@@ -281,6 +282,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
         } catch (error) {
           // One frame that won't decode leaves one empty tile. A few in a row means this file won't play here at all.
           if (signal.aborted || ++stuck > 2) throw error;
+          if (n === first.length - 1) finishPoster();
           continue;
         }
         stuck = 0;
@@ -289,7 +291,7 @@ function CheckStage({ file, analysis, onCancel, onRetry }: { file: File; analysi
         wanted.forEach((frame, tile) => {
           if (frame === i) drawCover(spriteCtx, v, tile * POSTER_TILE_W, 0, POSTER_TILE_W, POSTER_TILE_H);
         });
-        if (n === first.length - 1) posterReady(sprite.toDataURL("image/jpeg", 0.62));
+        if (n === first.length - 1) finishPoster();
         showTile(i, n >= first.length);
         if (frameChip.current) frameChip.current.textContent = formatTimecode(times[i]);
         setFrames((f) => ({ ...f, pulled: n + 1 }));

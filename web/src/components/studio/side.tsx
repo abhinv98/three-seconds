@@ -11,7 +11,7 @@ import { TimecodeChip } from "@/components/timecode-chip";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { checkCaption } from "@/lib/caption";
+import { CAPTION_LIMIT, checkCaption } from "@/lib/caption";
 import { collidesWithUi, extent, type FinerDetails, inSpan, type Moment, type MomentKind, type Source } from "@/lib/details";
 import { formatRange, formatTimecode } from "@/lib/format";
 import { bySeverity, type Report, verdictStatus } from "@/lib/report";
@@ -747,6 +747,7 @@ function CaptionCheck({ reelId, saved, readOnly }: { reelId: string; saved: Reel
         className="st-textarea"
         rows={3}
         value={text}
+        maxLength={CAPTION_LIMIT}
         readOnly={readOnly}
         placeholder="Paste the post's caption"
         aria-label="The post's caption"

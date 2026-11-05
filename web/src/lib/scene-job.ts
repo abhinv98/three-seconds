@@ -55,7 +55,8 @@ async function pickProductPhrase(videoUrl: string, durationS: number, kit: Brand
   const tooSlow = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("The phrase pick took too long.")), PHRASE_TIMEOUT_MS));
   try {
     return await Promise.race([pick(), tooSlow]);
-  } catch {
+  } catch (error) {
+    console.warn("Product phrase pick failed, tracking the plain word:", error);
     return { product: FALLBACK_PHRASE, costUsd: 0 };
   }
 }

@@ -332,32 +332,24 @@ describe("video and scene routes with ?share=", () => {
     expect((await videoFor("sent")).status).toBe(302);
   });
 
-  it("scene: a token opens only its own Reel", async () => {
+  it("scene: a token opens nothing, because the public page has no use for the tracking data", async () => {
     asViewer(brand);
     const token = await tokenOf("sent");
     await run("INSERT INTO reel_scene (reel_id, status, scene, started_at) VALUES ('sent', 'done', ?, ?)", JSON.stringify({ version: 1 }), new Date().toISOString());
-    await run("INSERT INTO reel_scene (reel_id, status, scene, started_at) VALUES ('own', 'done', ?, ?)", JSON.stringify({ version: 2 }), new Date().toISOString());
     asViewer(null);
-    const allowed = await sceneFor("sent", `?share=${token}`);
-    expect(allowed.status).toBe(200);
-    expect(await allowed.json()).toEqual({ version: 1 });
-    expect(allowed.headers.get("cache-control")).toBe("private, no-store");
-    expect((await sceneFor("own", `?share=${token}`)).status).toBe(404);
+    expect((await sceneFor("sent", `?share=${token}`)).status).toBe(401);
     expect((await sceneFor("sent")).status).toBe(401);
   });
 
   it("a revoked token stops working on the very next request", async () => {
     asViewer(brand);
     const token = await tokenOf("sent");
-    await run("INSERT INTO reel_scene (reel_id, status, scene, started_at) VALUES ('sent', 'done', '{}', ?)", new Date().toISOString());
     asViewer(null);
     expect((await videoFor("sent", `?share=${token}`)).status).toBe(302);
-    expect((await sceneFor("sent", `?share=${token}`)).status).toBe(200);
     asViewer(brand);
     await actions.revokeShareLinkAction("sent");
     asViewer(null);
     expect((await videoFor("sent", `?share=${token}`)).status).toBe(404);
-    expect((await sceneFor("sent", `?share=${token}`)).status).toBe(404);
     expect(await review.reelIdForShare(token)).toBeNull();
     expect(await get("SELECT 1 FROM reel_share WHERE token = ?", token)).toBeNull();
   });

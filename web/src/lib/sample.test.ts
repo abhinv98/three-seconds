@@ -58,6 +58,7 @@ const count = async (kind: string) => (await get<{ count: number }>("SELECT coun
 const seal = () => run("INSERT INTO reel_details (reel_id, status, details, started_at) VALUES ('seed', 'done', '{}', ?)", NOW);
 const addReel = (id: string, owner: string, brand: string | null) =>
   run("INSERT INTO reel (id, owner_id, brand_id, filename, size_bytes, status, report, created_at, video_url) VALUES (?, ?, ?, 'r.mp4', 1, 'done', '{}', ?, 'https://x/v.mp4')", id, owner, brand, NOW);
+const toDetails = (id: string) => ({ url: expect.stringMatching(new RegExp(`^/dashboard/reels/${id}/details\\?read=\\d+$`)) });
 
 beforeAll(() => schemaReady());
 
@@ -174,7 +175,7 @@ test("a sealed sample changes nothing for a normal brand and its creator", async
   await run("INSERT INTO connection (id, creator_id, brand_id, brand_name, created_at) VALUES ('c2', ?, ?, 'Acme', ?)", OTHER_ID, OWN_BRAND.id, NOW);
 
   viewer = { user: { id: "owner", name: "Ravi", email: "ravi@acme.in" }, profile: { role: "brand" }, brand: OWN_BRAND };
-  await expect(finerDetailsAction(form({ reelId: "acme-reel" }))).rejects.toMatchObject({ url: "/dashboard/reels/acme-reel/details" });
+  await expect(finerDetailsAction(form({ reelId: "acme-reel" }))).rejects.toMatchObject(toDetails("acme-reel"));
   await readBrandKitAction();
   expect(after).toHaveBeenCalledTimes(3);
 
@@ -193,7 +194,7 @@ test("a read that ends between the look and the claim can't start another withou
   await run("INSERT INTO reel_details (reel_id, status, started_at) VALUES ('seed', 'error', ?)", NOW);
   await reelScenes.claim("seed");
   const finerLook = vi.spyOn(finerDetails, "get").mockResolvedValueOnce(running);
-  await expect(finerDetailsAction(form({ reelId: "seed" }))).rejects.toMatchObject({ url: "/dashboard/reels/seed/details" });
+  await expect(finerDetailsAction(form({ reelId: "seed" }))).rejects.toMatchObject(toDetails("seed"));
   finerLook.mockRestore();
   const kitLook = vi.spyOn(brandKits, "get").mockResolvedValueOnce(running as never);
   await readBrandKitAction();
@@ -206,7 +207,7 @@ test("a read that ends between the look and the claim can't start another withou
 
 test("before it's sealed the sample seeds through the same actions", async () => {
   await addReel("second", SAMPLE_ID, SAMPLE_BRAND.id);
-  await expect(finerDetailsAction(form({ reelId: "second" }))).rejects.toMatchObject({ url: "/dashboard/reels/second/details" });
+  await expect(finerDetailsAction(form({ reelId: "second" }))).rejects.toMatchObject(toDetails("second"));
   expect(after).toHaveBeenCalledTimes(2);
   expect((await get<{ status: string }>("SELECT status FROM reel_details WHERE reel_id = 'second'"))?.status).toBe("reading");
   await readBrandKitAction();
@@ -215,7 +216,7 @@ test("before it's sealed the sample seeds through the same actions", async () =>
 
 test("the scene starts beside the finer read in its own after, and a finished one isn't run again", async () => {
   await addReel("second", SAMPLE_ID, SAMPLE_BRAND.id);
-  const press = () => expect(finerDetailsAction(form({ reelId: "second" }))).rejects.toMatchObject({ url: "/dashboard/reels/second/details" });
+  const press = () => expect(finerDetailsAction(form({ reelId: "second" }))).rejects.toMatchObject(toDetails("second"));
   const sceneStatus = async () => (await get<{ status: string }>("SELECT status FROM reel_scene WHERE reel_id = 'second'"))?.status;
 
   await press();
@@ -241,13 +242,44 @@ test("the scene starts beside the finer read in its own after, and a finished on
   expect(await reelScenes.get("second")).toMatchObject({ status: "done", data: { version: 1 }, cost_usd: 0.74 });
 });
 
+test("retrying failed tracking leaves finished details alone, and with both finished a click starts nothing", async () => {
+  const OWN_BRAND = { id: "own-brand", name: "Acme", website: "https://acme.in" };
+  await run(`INSERT INTO "user" (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('owner', 'Ravi', 'ravi@acme.in', 0, ?, ?)`, NOW, NOW);
+  await run("INSERT INTO profile (user_id, role, display_name, created_at) VALUES ('owner', 'brand', 'Ravi', ?)", NOW);
+  await run("INSERT INTO brand (id, owner_id, name, website, invite_code, created_at) VALUES (?, 'owner', 'Acme', 'https://acme.in', 'acme-code', ?)", OWN_BRAND.id, NOW);
+  await run("INSERT INTO brand_kit (brand_id, status, kit, started_at) VALUES (?, 'done', ?, ?)", OWN_BRAND.id, JSON.stringify(KIT), NOW);
+  await addReel("acme-reel", "owner", OWN_BRAND.id);
+  viewer = { user: { id: "owner", name: "Ravi", email: "ravi@acme.in" }, profile: { role: "brand" }, brand: OWN_BRAND };
+  const press = () => expect(finerDetailsAction(form({ reelId: "acme-reel" }))).rejects.toMatchObject(toDetails("acme-reel"));
+  const status = async (table: string) => (await get<{ status: string }>(`SELECT status FROM ${table} WHERE reel_id = 'acme-reel'`))?.status;
+  await run("INSERT INTO reel_details (reel_id, status, details, started_at) VALUES ('acme-reel', 'done', '{}', ?)", NOW);
+  await run("INSERT INTO reel_scene (reel_id, status, error, started_at) VALUES ('acme-reel', 'error', 'It stopped.', ?)", NOW);
+
+  await press();
+  expect(after).toHaveBeenCalledTimes(1);
+  expect(await count("finer")).toBe(1);
+  expect(await status("reel_details")).toBe("done");
+  expect(await status("reel_scene")).toBe("reading");
+
+  await run("UPDATE reel_scene SET status = 'done', scene = '{}' WHERE reel_id = 'acme-reel'");
+  await press();
+  expect(after).toHaveBeenCalledTimes(1);
+  expect(await count("finer")).toBe(1);
+});
+
+test("a new kit read starts with an empty log, not the last read's steps", async () => {
+  await run("UPDATE brand_kit SET progress = ? WHERE brand_id = ?", '[{"s":1,"text":"old"}]', SAMPLE_BRAND.id);
+  await readBrandKitAction();
+  expect((await get<{ progress: string | null }>("SELECT progress FROM brand_kit WHERE brand_id = ?", SAMPLE_BRAND.id))?.progress).toBeNull();
+});
+
 test("finer details stop at FINER_DAILY_CAP and say why, and a second click on a running read takes no count", async () => {
   vi.stubEnv("FINER_DAILY_CAP", "1");
   await addReel("second", SAMPLE_ID, SAMPLE_BRAND.id);
   const press = (reelId: string) => finerDetailsAction(form({ reelId }));
 
-  await expect(press("seed")).rejects.toMatchObject({ url: "/dashboard/reels/seed/details" });
-  await expect(press("seed")).rejects.toMatchObject({ url: "/dashboard/reels/seed/details" });
+  await expect(press("seed")).rejects.toMatchObject(toDetails("seed"));
+  await expect(press("seed")).rejects.toMatchObject(toDetails("seed"));
   expect(await count("finer")).toBe(1);
   expect(after).toHaveBeenCalledTimes(2);
 

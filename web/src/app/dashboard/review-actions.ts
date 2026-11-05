@@ -3,6 +3,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { reelFor, requireMember, siteOrigin, type Member } from "@/lib/account";
+import { CAPTION_LIMIT } from "@/lib/caption";
 import { get, run } from "@/lib/db";
 import { shareTokenFor, type ReviewStatus } from "@/lib/review";
 import { requireWritable, requireWritableBrand } from "@/lib/sample";
@@ -11,8 +12,6 @@ import { requireWritable, requireWritableBrand } from "@/lib/sample";
 // deleted by its author or by that brand. Arguments come off the network, so they are checked here too.
 
 export type ActionResult = { ok: true } | { error: string };
-
-const INSTAGRAM_CAPTION_LIMIT = 2200;
 
 const clean = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
 
@@ -145,7 +144,7 @@ export async function saveCaptionAction(reelId: string, caption: string, usesPla
     `INSERT INTO reel_caption (reel_id, caption, uses_platform_tag, by_name, at) VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (reel_id) DO UPDATE SET caption = excluded.caption, uses_platform_tag = excluded.uses_platform_tag, by_name = excluded.by_name, at = excluded.at`,
     reel.id,
-    clean(caption, INSTAGRAM_CAPTION_LIMIT),
+    clean(caption, CAPTION_LIMIT),
     usesPlatformTag === true ? 1 : 0,
     viewer.profile.display_name,
     new Date().toISOString(),
