@@ -4,11 +4,10 @@ import { connection } from "next/server";
 import { ShareView, type SharedDetails } from "@/app/share/[token]/share-view";
 import { Logo } from "@/components/logo";
 import { brandKits, fontCss } from "@/lib/brand-kit";
-import { get } from "@/lib/db";
 import { finerDetails } from "@/lib/finer";
 import type { Report } from "@/lib/report";
-import { captionFor, doneMoments, notesFor, reelIdForShare, reviewFor } from "@/lib/review";
-import { SAMPLE, SAMPLE_BANNER } from "@/lib/sample";
+import { captionFor, doneMoments, notesFor, reelIdForShare, reviewFor, sharedReel } from "@/lib/review";
+import { SAMPLE_BANNER } from "@/lib/sample";
 
 // Public and read-only: anyone with the token sees this one Reel. Everything a client component gets is listed here by
 // hand, so no email, owner name, user id, Blob URL or cost can reach the page. Never cached: a revoked token is dead at once.
@@ -18,12 +17,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const { token } = await params;
   const reelId = await reelIdForShare(token);
   if (!reelId) notFound();
-  const reel = await get<{ report: string | null; brand_id: string | null; brand_name: string | null; is_sample: number | null }>(
-    `SELECT r.report, r.brand_id, b.name AS brand_name, u.email = ? AS is_sample
-       FROM reel r LEFT JOIN brand b ON b.id = r.brand_id LEFT JOIN "user" u ON u.id = b.owner_id WHERE r.id = ?`,
-    SAMPLE.email,
-    reelId,
-  );
+  const reel = await sharedReel(reelId);
   if (!reel?.report) notFound();
 
   const full = JSON.parse(reel.report) as Report;

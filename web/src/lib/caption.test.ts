@@ -93,6 +93,10 @@ describe("permitted words", () => {
     expect(verdict(caption)).toBe("FAIL");
   });
 
+  it("a line break ends the phrase: Ad on its own line still counts", () => {
+    expect(verdict("Ad\nFree shipping on the code below")).toBe("PASS");
+  });
+
   it("a negation in an earlier clause doesn't cancel the word", () => {
     expect(verdict("No filter, sponsored by Ray-Ban")).toBe("PASS");
     expect(verdict("#casinosponsored hiking")).toBe("PASS");
@@ -226,6 +230,11 @@ describe("combinedOutcome", () => {
 
   it("says plainly when nothing discloses", () => {
     expect(combinedOutcome("FAIL", "FAIL", false)).toContain("Nothing tells a viewer this is paid.");
+  });
+
+  it("quotes 1.2e's own words about accompanying text", () => {
+    expect(combinedOutcome("FAIL", "PASS", false)).toContain('"without accompanying text"');
+    expect(asciClause("ASCI-IG 1.2e").text).toContain("without accompanying text");
   });
 
   it("with the tag on, says the post carries a label while the file stays as measured", () => {

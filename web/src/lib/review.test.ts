@@ -247,6 +247,13 @@ describe("the public sample", () => {
     expect(await review.reviewFor("sampled")).toBeNull();
   });
 
+  it("the public page learns only that the folder is the sample's", async () => {
+    expect(await review.sharedReel("sampled")).toMatchObject({ brand_name: "b3 name", is_sample: 1 });
+    expect(await review.sharedReel("sent")).toMatchObject({ brand_name: "b1 name", is_sample: 0 });
+    expect(await review.sharedReel("unsent")).toMatchObject({ brand_id: null, brand_name: null, is_sample: null });
+    expect(Object.keys((await review.sharedReel("sent")) ?? {}).sort()).toEqual(["brand_id", "brand_name", "is_sample", "report"]);
+  });
+
   it("a creator who sent a Reel into the sealed folder can't write on it either", async () => {
     await addReel("into-sample", "creator", "b3", true);
     asViewer(creator);

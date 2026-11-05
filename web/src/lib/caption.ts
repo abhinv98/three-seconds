@@ -25,7 +25,7 @@ const NEGATED_BEFORE = new Set(["not", "no", "never", "non", "isn't", "isnt", "w
 const NEGATED_AFTER = new Set(["nahi", "nahin", "नहीं", "नही", "ना"]);
 const NEGATED_TAG = /(?:^(?:no|un)|not|non|never|isnt|wasnt)(?:an?|paid)?(?:advertisement|ad|sponsored|collaboration|partnership|employee|freegift|affiliate|paidpromotion)/;
 /** "ad" followed by one of these is about ads, not a label on one. */
-const AD_NOUN = /^[\s-]*(?:free|hoc|block|blocker|blockers|blocking|campaign|campaigns|agency|shoot|spend|budget|account|break)(?![\p{L}])/iu;
+const AD_NOUN = /^[ -]*(?:free|hoc|block|blocker|blockers|blocking|campaign|campaigns|agency|shoot|spend|budget|account|break)(?![\p{L}])/iu;
 /** Whole words inside an all-lowercase hashtag. "ad" isn't here: #roadtrip and #adventure hold those letters by accident. */
 const TAG_WORDS = /advertisement|sponsored|collaboration|partnership|employee|freegift|affiliate|paidpromotion/;
 

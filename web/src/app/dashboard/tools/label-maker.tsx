@@ -249,7 +249,7 @@ export function LabelMaker({ kits }: { kits: LabelKit[] }) {
           {kit?.webFonts.map((font2) => (
             <link key={font2} rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(font2).replace(/%20/g, "+")}:wght@700&display=swap`} precedence="default" />
           ))}
-          <div ref={frameRef} className="relative aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-[10px] bg-viewer-plate select-none min-[820px]:max-w-[280px]" aria-label="Preview over a blank Reel frame" role="group">
+          <div ref={frameRef} className="relative aspect-[9/16] w-full max-w-[240px] overflow-hidden rounded-[10px] border border-border bg-viewer-plate select-none min-[820px]:max-w-[280px]" aria-label="Preview over a blank Reel frame" role="group">
             <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[13px] font-semibold text-viewer-plate-foreground opacity-40">Your Reel</p>
             {zones.map((zone) => (
               <div

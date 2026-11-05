@@ -1,5 +1,6 @@
 import { schemaReady } from "@/lib/auth";
 import { all, get } from "@/lib/db";
+import { SAMPLE } from "@/lib/sample";
 
 // What people say about a Reel once it's checked: the brand's answer, notes pinned to a time, moments marked done, the
 // caption, and the public share link. Reads only; the writes and who may make them are in app/dashboard/review-actions.ts.
@@ -62,6 +63,16 @@ export async function captionFor(reelId: string): Promise<ReelCaption | null> {
 
 export async function shareTokenFor(reelId: string): Promise<string | null> {
   return (await get<{ token: string }>("SELECT token FROM reel_share WHERE reel_id = ?", reelId))?.token ?? null;
+}
+
+/** All the public page reads about a Reel's row: never who owns it, only whether the folder is the public sample's. */
+export function sharedReel(reelId: string) {
+  return get<{ report: string | null; brand_id: string | null; brand_name: string | null; is_sample: number | null }>(
+    `SELECT r.report, r.brand_id, b.name AS brand_name, u.email = ? AS is_sample
+       FROM reel r LEFT JOIN brand b ON b.id = r.brand_id LEFT JOIN "user" u ON u.id = b.owner_id WHERE r.id = ?`,
+    SAMPLE.email,
+    reelId,
+  );
 }
 
 /** The Reel a share token opens. Never cached, so a revoked token stops working on the next request. */

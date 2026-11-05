@@ -77,7 +77,7 @@ export function ReviewPanel({ reelId, review, readOnly = false }: ReviewPanelPro
 
         {readOnly ? null : (
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="compact" disabled={pending} onClick={() => answer("approved", "")}>
+            <Button size="compact" disabled={pending || review?.status === "approved"} onClick={() => answer("approved", "")}>
               <Check size={15} aria-hidden="true" />
               Approve
             </Button>

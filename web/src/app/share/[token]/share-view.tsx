@@ -185,7 +185,8 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
             ) : (
               <video
                 ref={videoRef}
-                src={report.video.blob_url}
+                // With no poster, a phone paints nothing until play unless it's told where to start.
+                src={details?.poster ? report.video.blob_url : `${report.video.blob_url}#t=0.1`}
                 poster={details?.poster}
                 controls
                 playsInline
