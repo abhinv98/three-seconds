@@ -16,7 +16,9 @@ const INSTAGRAM_CAPTION_LIMIT = 2200;
 
 const clean = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
 
-async function open(reelId: string) {
+type Reel = NonNullable<Awaited<ReturnType<typeof reelFor>>>;
+
+async function open(reelId: string): Promise<{ viewer: Member; reel: Reel } | { error: string }> {
   const viewer = await requireMember(`/dashboard/reels/${encodeURIComponent(reelId)}`);
   const readOnly = await requireWritable(viewer);
   if (readOnly) return { error: readOnly };
@@ -104,6 +106,14 @@ export async function setMomentDoneAction(reelId: string, momentId: string, done
     await run("DELETE FROM reel_moment_done WHERE reel_id = ? AND moment_id = ?", opened.reel.id, id);
   }
   return { ok: true };
+}
+
+/** The link as it stands, for the panel that shows it. A read, so the sample may ask too. */
+export async function currentShareLinkAction(reelId: string): Promise<{ url: string | null }> {
+  const viewer = await requireMember(`/dashboard/reels/${encodeURIComponent(reelId)}`);
+  const reel = await reelFor(viewer, String(reelId));
+  const token = reel ? await shareTokenFor(reel.id) : null;
+  return { url: token ? `${await siteOrigin()}/share/${token}` : null };
 }
 
 /** The Reel's one share link: the same link until it's revoked, a new one after. */

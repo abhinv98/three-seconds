@@ -131,7 +131,7 @@ function Lines({ lines }: { lines: CaptionCheck["lines"] }) {
   return (
     <ul className="grid gap-2 border-t border-border pt-3">
       {lines.map((line) => {
-        const [, say, clause] = line.text.match(/^(.*?)\s*(\d\.\d[a-z]?: ".*")$/s) ?? [null, line.text, null];
+        const [, say, clause] = line.text.match(/^([\s\S]*?)\s*(\d\.\d[a-z]?: "[\s\S]*")$/) ?? [null, line.text, null];
         return (
           <li key={line.text} className="grid grid-cols-[16px_minmax(0,1fr)] gap-2 text-sm">
             {line.ok ? <Check size={16} aria-label="Good" className="mt-0.5 text-pass-text" /> : <X size={16} aria-label="Missing" className="mt-0.5 text-fail-text" />}

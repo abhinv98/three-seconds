@@ -284,6 +284,15 @@ describe("share links", () => {
     expect(await review.shareTokenFor("sent")).toBeNull();
   });
 
+  it("the current link is null until there is one, and only for someone who can see the Reel", async () => {
+    asViewer(brand);
+    expect(await actions.currentShareLinkAction("sent")).toEqual({ url: null });
+    const made = await actions.createShareLinkAction("sent");
+    expect(await actions.currentShareLinkAction("sent")).toEqual(made);
+    asViewer(stranger);
+    expect(await actions.currentShareLinkAction("sent")).toEqual({ url: null });
+  });
+
   it("ignores anything that isn't shaped like a token, without touching the database", async () => {
     for (const token of ["", "short", "x".repeat(25), "' OR 1=1 --xxxxxxxxxxxxxx", "a/b/c/d/e/f/g/h/i/j/k/l/m"]) {
       expect(await review.reelIdForShare(token)).toBeNull();

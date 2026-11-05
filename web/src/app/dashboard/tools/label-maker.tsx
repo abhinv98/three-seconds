@@ -74,9 +74,10 @@ export function LabelMaker({ kits }: { kits: LabelKit[] }) {
   useEffect(() => {
     if (!font) return;
     let live = true;
-    document.fonts.load(font, word).finally(() => {
+    const settled = () => {
       if (live) setFontsSettled((n) => n + 1);
-    });
+    };
+    document.fonts.load(font, word).then(settled, settled);
     return () => {
       live = false;
     };

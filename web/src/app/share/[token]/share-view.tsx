@@ -217,7 +217,7 @@ export function ShareView({ reelId, report, details, brand, brandFont, review, n
             <section aria-labelledby="fixes-heading">
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 id="fixes-heading" className="text-[22px] font-bold tracking-[-0.02em]">
-                  {openCount === 0 ? "All changes done" : `${openCount} ${openCount === 1 ? "change" : "changes"} to make`}
+                  {openCount === 0 ? "All changes done" : `${openCount} ${openCount === 1 ? "change" : "changes"} ${review?.status === "approved" ? "suggested" : "to make"}`}
                 </h2>
                 {done.length ? <p className="text-[13px] text-muted-foreground">{moments.length - openCount} done</p> : null}
               </div>

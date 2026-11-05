@@ -4,6 +4,7 @@ import { Check, CornerDownLeft, PencilLine } from "lucide-react";
 import { useState, useTransition } from "react";
 import { reviewReelAction } from "@/app/dashboard/review-actions";
 import { Panel, when } from "@/components/account/bits";
+import { ShareLink } from "@/components/review/share-link";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
@@ -113,6 +114,8 @@ export function ReviewPanel({ reelId, review, readOnly = false }: ReviewPanelPro
             </Button>
           </form>
         ) : null}
+
+        {readOnly ? null : <ShareLink reelId={reelId} />}
       </div>
     </Panel>
   );
