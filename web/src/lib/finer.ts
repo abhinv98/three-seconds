@@ -172,14 +172,14 @@ export async function readReel(report: Report, kit: BrandKitData, sources: Map<s
   return { read: data, costUsd };
 }
 
-async function worker<T>(path: string, body: unknown): Promise<T> {
+export async function worker<T>(path: string, body: unknown, timeoutMs = 150_000): Promise<T> {
   const base = process.env.WORKER_URL;
   if (!base) throw new Error("The analysis worker isn't set up (WORKER_URL).");
   const response = await fetch(`${base.replace(/\/+$/, "")}${path}`, {
     method: "POST",
     headers: workerHeaders("application/json"),
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(150_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const data = (await response.json().catch(() => null)) as (T & { detail?: unknown }) | null;
   if (!response.ok || !data) {

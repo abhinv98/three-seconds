@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { AuthFrame, NoticeCard } from "@/components/account/auth-frame";
 import { Button } from "@/components/ui/button";
 import { brandByCode, getViewer, joinBrand } from "@/lib/account";
+import { requireWritable, requireWritableBrand } from "@/lib/sample";
 
 export const metadata: Metadata = { title: "Join a brand" };
 
@@ -12,6 +13,19 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
   const { code } = await params;
   const brand = await brandByCode(code);
   if (!brand) notFound();
+  const readOnly = await requireWritableBrand(brand.id);
+  if (readOnly) {
+    return (
+      <AuthFrame>
+        <NoticeCard title="This folder is a sample">
+          <p>{readOnly}</p>
+          <Button asChild size="compact" className="justify-self-start">
+            <Link href="/sign-in?mode=sign-up">Make an account</Link>
+          </Button>
+        </NoticeCard>
+      </AuthFrame>
+    );
+  }
   const here = `/join/${encodeURIComponent(code)}`;
   const viewer = await getViewer();
   if (!viewer) redirect(`/sign-in?mode=sign-up&next=${encodeURIComponent(here)}`);
@@ -35,6 +49,7 @@ export default async function JoinPage({ params }: { params: Promise<{ code: str
     const member = await getViewer();
     const target = await brandByCode(code);
     if (!member?.profile || member.profile.role !== "creator" || !target) redirect(here);
+    if ((await requireWritable(member)) || (await requireWritableBrand(target.id))) redirect(here);
     await joinBrand(member.user.id, target);
     redirect(`/dashboard/connections?joined=${encodeURIComponent(target.name)}`);
   }

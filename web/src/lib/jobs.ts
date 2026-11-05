@@ -14,7 +14,7 @@ export interface Job<T> {
   started_at: string;
 }
 
-export function jobStore<T>(table: "brand_kit" | "reel_details", key: "brand_id" | "reel_id", column: "kit" | "details") {
+export function jobStore<T>(table: "brand_kit" | "reel_details" | "reel_scene", key: "brand_id" | "reel_id", column: "kit" | "details" | "scene") {
   return {
     async get(id: string): Promise<Job<T> | null> {
       const row = await get<Omit<Job<T>, "data"> & { data: string | null }>(

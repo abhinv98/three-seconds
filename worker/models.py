@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 Verdict = Literal["PASS", "FAIL", "REVIEW"]
 CheckVerdict = Literal["PASS", "FAIL", "REVIEW", "INFO"]
@@ -123,3 +123,25 @@ class TrackRequest(Strict):
     objects: list[TrackObject] = Field(default_factory=list, max_length=16)
     stills: list[float] = Field(default_factory=list, max_length=16)
     """Seconds to take a small still at, one per change in the list."""
+
+
+class SceneConcept(Strict):
+    id: str = Field(min_length=1, max_length=40)
+    phrase: str = Field(min_length=1, max_length=80, pattern=r"^[^<>|]+$")
+    """Plain words: `<0f>1<|box;...` would turn a text concept into an object prompt."""
+    masks: bool = False
+
+
+class SceneRequest(Strict):
+    """The whole Reel through SAM 3.1. Every concept is billed for every frame, so both are capped."""
+
+    blob_url: str = Field(min_length=1, max_length=2048)
+    concepts: list[SceneConcept] = Field(min_length=1, max_length=6)
+    fps: int = Field(default=15, ge=1, le=15)
+    width: int = Field(default=540, ge=160, le=720)
+
+    @model_validator(mode="after")
+    def ids_are_unique(self) -> SceneRequest:
+        if len({c.id for c in self.concepts}) != len(self.concepts):
+            raise ValueError("concept ids must be unique")
+        return self

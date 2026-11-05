@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AuthFrame, NoticeCard } from "@/components/account/auth-frame";
 import { Button } from "@/components/ui/button";
 import { claimInvite, getViewer, inviteByToken } from "@/lib/account";
+import { requireWritable } from "@/lib/sample";
 
 export const metadata: Metadata = { title: "Invitation" };
 
@@ -49,6 +50,8 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     const member = await getViewer();
     const pending = await inviteByToken(token);
     if (!member?.brand || !pending) redirect(here);
+    const readOnly = await requireWritable(member);
+    if (readOnly) redirect(`/dashboard?error=${encodeURIComponent(readOnly)}`);
     await claimInvite(pending, member.brand);
     redirect(`/dashboard/connections?claimed=${encodeURIComponent(pending.creator_name)}`);
   }

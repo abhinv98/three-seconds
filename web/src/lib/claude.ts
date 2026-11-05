@@ -4,9 +4,14 @@ import Anthropic from "@anthropic-ai/sdk";
 // the brand research and the finer-details read.
 
 export const MODEL = "claude-opus-5-5";
+/** For a small pick where Opus would be waste. It has no server-side fallback on a refusal. */
+export const CHEAP_MODEL = "claude-haiku-5-5";
 
 /** List prices: per million tokens, and per web search. */
-const PRICE = { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2, search: 0.01 };
+const PRICES = {
+  [MODEL]: { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2, search: 0.01 },
+  [CHEAP_MODEL]: { input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01, search: 0.01 },
+};
 
 export interface Answer<T> {
   data: T;
@@ -20,6 +25,7 @@ export async function askForJson<T>({
   effort,
   searches = 0,
   fetches = 0,
+  model = MODEL,
 }: {
   content: Anthropic.Beta.BetaContentBlockParam[] | string;
   schema: Record<string, unknown>;
@@ -28,8 +34,10 @@ export async function askForJson<T>({
   searches?: number;
   /** Page fetches allowed (0 for none). */
   fetches?: number;
+  model?: typeof MODEL | typeof CHEAP_MODEL;
 }): Promise<Answer<T>> {
   const client = new Anthropic();
+  const PRICE = PRICES[model];
   const tools: Anthropic.Beta.BetaToolUnion[] = [
     ...(searches ? [{ type: "web_search_20260209" as const, name: "web_search" as const, max_uses: searches }] : []),
     ...(fetches ? [{ type: "web_fetch_20260209" as const, name: "web_fetch" as const, max_uses: fetches }] : []),
@@ -41,10 +49,9 @@ export async function askForJson<T>({
   for (let turn = 0; turn < 4; turn++) {
     const message = await client.beta.messages
       .stream({
-        model: MODEL,
+        model,
         max_tokens: 32000,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+        ...(model === MODEL ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
         ...(tools.length ? { tools } : {}),
         output_config: { effort, format: { type: "json_schema", schema } },
         messages,

@@ -164,7 +164,7 @@ function RoleCard({ icon, title, body, onPick }: { icon: React.ReactNode; title:
     <button
       type="button"
       onClick={onPick}
-      className="group grid gap-3 rounded-[10px] border border-border bg-card p-5 text-left transition-[border-color,translate] duration-[120ms] ease-out hover:border-foreground/40 active:translate-y-px"
+      className="group grid gap-3 rounded-[6px] border border-border bg-card p-5 text-left transition-[border-color,translate] duration-[120ms] ease-out hover:border-foreground/40 active:translate-y-px"
     >
       <span className="grid size-10 place-items-center rounded-[6px] bg-foreground text-background">{icon}</span>
       <span className="text-[17px] font-bold tracking-[-0.01em]">{title}</span>

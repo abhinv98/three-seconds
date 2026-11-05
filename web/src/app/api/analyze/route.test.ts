@@ -13,7 +13,7 @@ vi.mock("@vercel/blob", () => ({
 }));
 
 vi.mock("@/lib/account", () => ({
-  getViewer: async () => ({ profile: {} }),
+  getViewer: async () => ({ user: { id: "u1", email: "creator@example.com" }, profile: {} }),
   startReel: async () => {},
   finishReel: async () => {},
   failReel: async () => {},
@@ -33,7 +33,7 @@ const analyze = (blobUrl = OWN_URL) =>
   POST(new Request("http://site.test/api/analyze", { method: "POST", body: JSON.stringify({ blobUrl, filename: "reel.mp4" }) }));
 
 beforeEach(async () => {
-  await db.execute("DROP TABLE IF EXISTS analyze_day");
+  await db.execute("DROP TABLE IF EXISTS spend_day");
   vi.stubEnv("WORKER_URL", "http://worker.test");
   vi.stubEnv("ANALYZE_ENABLED", "");
   vi.stubEnv("ANALYZE_DAILY_CAP", "");
@@ -81,10 +81,10 @@ test("the count is per day in India, so yesterday's checks don't carry over", as
   vi.stubEnv("ANALYZE_DAILY_CAP", "1");
   await analyze();
   expect((await analyze()).status).toBe(429);
-  const { rows } = await db.execute("SELECT day, count FROM analyze_day");
+  const { rows } = await db.execute("SELECT day, count FROM spend_day WHERE kind = 'analyze'");
   expect({ ...rows[0] }).toEqual({ day: new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10), count: 1 });
 
-  await db.execute("UPDATE analyze_day SET day = '2000-01-01'");
+  await db.execute("UPDATE spend_day SET day = '2000-01-01'");
   expect((await analyze()).status).toBe(200);
 });
 

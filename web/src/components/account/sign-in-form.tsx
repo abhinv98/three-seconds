@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Tick } from "@/components/landing/tick";
@@ -7,7 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 
-export function SignInForm({ next, initialMode }: { next: string; initialMode: "sign-in" | "sign-up" }) {
+export interface SampleLogin {
+  name: string;
+  email: string;
+  password: string;
+  label: string;
+  /** Who is signed in now, if anyone: the one click swaps accounts. */
+  leaving: string | null;
+}
+
+export function SignInForm({ next, initialMode, sample = null }: { next: string; initialMode: "sign-in" | "sign-up"; sample?: SampleLogin | null }) {
   const router = useRouter();
   const [mode, setMode] = useState(initialMode);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +36,7 @@ export function SignInForm({ next, initialMode }: { next: string; initialMode: "
       : await authClient.signIn.email({ email, password });
     if (failure) {
       setBusy(false);
-      setError(failure.message ?? "That didn't work. Try again.");
+      setError(sample && failure.status === 401 ? "The sample folder isn't set up yet. Make your own account for now." : (failure.message ?? "That didn't work. Try again."));
       return;
     }
     // New accounts answer the questionnaire first; it sends them on to `next` afterwards.
@@ -42,30 +52,36 @@ export function SignInForm({ next, initialMode }: { next: string; initialMode: "
         </span>
         <div>
           <h1 className="text-[28px] leading-tight font-bold tracking-[-0.03em]">
-            {signUp ? "Make an account" : "Sign in"}
+            {sample ? "The Meta sample" : signUp ? "Make an account" : "Sign in"}
           </h1>
           <p className="mt-1 text-[15px] text-muted-foreground">
-            {signUp ? "For brands, and the creators who make their Reels." : "Your Reels are where you left them."}
+            {sample
+              ? "Metty isn't a real person and this password isn't a real secret. One click and you're in."
+              : signUp
+                ? "For brands, and the creators who make their Reels."
+                : "Your Reels are where you left them."}
           </p>
         </div>
       </div>
       <form onSubmit={submit} className="grid gap-4">
-        {signUp ? (
+        {signUp || sample ? (
           <Field label="Your name">
-            <Input name="name" autoComplete="name" maxLength={80} required />
+            <Input name="name" autoComplete={sample ? "off" : "name"} maxLength={80} required defaultValue={sample?.name} readOnly={Boolean(sample)} />
           </Field>
         ) : null}
         <Field label="Email">
-          <Input name="email" type="email" autoComplete="email" maxLength={200} required />
+          <Input name="email" type="email" autoComplete={sample ? "off" : "email"} maxLength={200} required defaultValue={sample?.email} readOnly={Boolean(sample)} />
         </Field>
-        <Field label="Password" hint={signUp ? "At least 8 characters." : undefined}>
+        <Field label="Password" hint={signUp && !sample ? "At least 8 characters." : undefined}>
           <Input
             name="password"
-            type="password"
-            autoComplete={signUp ? "new-password" : "current-password"}
+            type={sample ? "text" : "password"}
+            autoComplete={sample ? "off" : signUp ? "new-password" : "current-password"}
             minLength={8}
             maxLength={128}
             required
+            defaultValue={sample?.password}
+            readOnly={Boolean(sample)}
           />
         </Field>
         {error ? (
@@ -74,22 +90,35 @@ export function SignInForm({ next, initialMode }: { next: string; initialMode: "
           </p>
         ) : null}
         <Button type="submit" size="compact" disabled={busy} className="mt-1">
-          {busy ? "One second…" : signUp ? "Make my account" : "Sign in"}
+          {busy ? "One second…" : signUp ? "Make my account" : sample ? "Sign in as Metty" : "Sign in"}
         </Button>
       </form>
-      <p className="text-sm text-muted-foreground">
-        {signUp ? "Already have an account? " : "New here? "}
-        <button
-          type="button"
-          className="rounded-sm font-semibold text-foreground underline underline-offset-4"
-          onClick={() => {
-            setMode(signUp ? "sign-in" : "sign-up");
-            setError(null);
-          }}
-        >
-          {signUp ? "Sign in" : "Make an account"}
-        </button>
-      </p>
+      {sample ? (
+        <div className="grid gap-2 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">{sample.label}</p>
+          {sample.leaving ? <p>You&rsquo;re signed in as {sample.leaving}. This switches you to the sample.</p> : null}
+          <p>
+            Want your own?{" "}
+            <Link href="/sign-in?mode=sign-up" className="rounded-sm font-semibold text-foreground underline underline-offset-4">
+              Make an account
+            </Link>
+          </p>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {signUp ? "Already have an account? " : "New here? "}
+          <button
+            type="button"
+            className="rounded-sm font-semibold text-foreground underline underline-offset-4"
+            onClick={() => {
+              setMode(signUp ? "sign-in" : "sign-up");
+              setError(null);
+            }}
+          >
+            {signUp ? "Sign in" : "Make an account"}
+          </button>
+        </p>
+      )}
     </div>
   );
 }

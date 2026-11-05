@@ -8,13 +8,14 @@ import hmac
 import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from starlette.concurrency import run_in_threadpool
 
-from models import AnalyzeRequest, FramesRequest, Report, TrackRequest
-from pipeline import details
+from models import AnalyzeRequest, FramesRequest, Report, SceneRequest, TrackRequest
+from pipeline import details, scene
 from pipeline.frames import MAX_BYTES, VideoError, download, probe
 from pipeline.report import analyze_video, build_report
 
@@ -85,6 +86,19 @@ def track(request: TrackRequest) -> dict:
             duration, _, _ = probe(video)
             objects = [o.model_dump() for o in request.objects]
             return details.track_and_stills(video, duration, objects, request.stills)
+    except VideoError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.post("/scene", dependencies=[Depends(require_token)])
+def scene_route(request: SceneRequest) -> dict:
+    """The Studio's data: SAM 3.1 on the whole Reel for each concept, plus its cuts, waveform and filmstrip."""
+    deadline = time.monotonic() + scene.BUDGET_S  # The download counts against the same 300 s.
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            video = download(request.blob_url, Path(tmp) / "video")
+            concepts = [c.model_dump() for c in request.concepts]
+            return scene.build_scene(video, concepts, request.fps, request.width, deadline)
     except VideoError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

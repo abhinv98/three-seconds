@@ -162,6 +162,15 @@ export async function createAppTables() {
       cost_usd   REAL,
       started_at TEXT NOT NULL
     );
+    -- SAM 3.1's track of a Reel for the Studio (lib/scene.ts). JSON, about 1 MB, served by /api/reels/[id]/scene.
+    CREATE TABLE IF NOT EXISTS reel_scene (
+      reel_id    TEXT PRIMARY KEY REFERENCES reel(id) ON DELETE CASCADE,
+      status     TEXT NOT NULL CHECK (status IN ('reading', 'done', 'error')),
+      scene      TEXT,
+      error      TEXT,
+      cost_usd   REAL,
+      started_at TEXT NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS reel_owner ON reel(owner_id, created_at);
     CREATE INDEX IF NOT EXISTS reel_brand ON reel(brand_id, created_at);
     CREATE INDEX IF NOT EXISTS connection_brand ON connection(brand_id);

@@ -1,7 +1,9 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import { nextCookies } from "better-auth/next-js";
 import { createAppTables, dialect } from "@/lib/db";
+import { SAMPLE } from "@/lib/sample";
 
 // Sign-in is email and password for now (Google needs OAuth credentials from a Google Cloud project).
 // Better Auth checks a request's Origin against trustedOrigins; DEV_ORIGINS adds the LAN and Tailscale
@@ -25,6 +27,17 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128 },
   trustedOrigins: [`http://localhost:${process.env.PORT ?? 3000}`, ...devOrigins, ...vercelHosts.map((host) => `https://${host}`)],
   plugins: [nextCookies()],
+  hooks: {
+    // The sample's email is public, so until the account exists someone could take it with a password of their own.
+    // Here rather than in the route: this is the path Better Auth resolved, whatever the URL looked like.
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/sign-up/email") return;
+      const { email, password, name } = ctx.body ?? {};
+      if (String(email).toLowerCase() === SAMPLE.email && (password !== SAMPLE.password || name !== SAMPLE.name)) {
+        throw new APIError("FORBIDDEN", { message: "This email is kept for the public Meta sample." });
+      }
+    }),
+  },
 });
 
 const cache = globalThis as { __threeSecondsSchemaReady?: Promise<void> };

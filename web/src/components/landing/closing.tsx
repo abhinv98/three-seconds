@@ -261,8 +261,8 @@ export function Closing() {
             <a href={ASCI_SOURCE_URL} target="_blank" rel="noreferrer" className="lp-link">
               The ASCI guideline
             </a>
-            <Link href="/check" className="lp-link">
-              Check an ad
+            <Link href="/sign-in?sample=meta" className="lp-link">
+              Check the Meta sample
             </Link>
           </nav>
           <p className="lp-foot__year">© 2026. Not legal advice.</p>

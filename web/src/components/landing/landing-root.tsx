@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
+import { PALETTES, paletteVars, type Daypart } from "@/lib/daypart";
 
 /**
  * The landing page's root. Each [data-rv] part rises in once as it scrolls into view, in reading order; parts
- * are hidden only after this has run (data-ready), so the page reads in full without script.
+ * are hidden only after this has run (data-ready), so the page reads in full without script. It carries the local-time
+ * palette too: the browser's fallback script and DaypartGreeting repaint this element, hence suppressHydrationWarning.
  */
-export function LandingRoot({ children }: { children: React.ReactNode }) {
+export function LandingRoot({ daypart, children }: { daypart: Daypart; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,7 +32,14 @@ export function LandingRoot({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div ref={ref} className="lp">
+    <div
+      ref={ref}
+      className="lp"
+      data-daypart={daypart}
+      data-ground={PALETTES[daypart].ground}
+      style={paletteVars(daypart) as CSSProperties}
+      suppressHydrationWarning
+    >
       {children}
     </div>
   );

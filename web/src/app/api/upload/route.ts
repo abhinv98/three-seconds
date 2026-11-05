@@ -1,10 +1,16 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { getViewer } from "@/lib/account";
 import { ACCEPTED_TYPES, MAX_BYTES } from "@/lib/limits";
+import { requireWritable } from "@/lib/sample";
 
 // Issues short-lived client tokens so the browser uploads straight to Vercel Blob.
 // The video body never passes through this function (4.5 MB request limit).
 export async function POST(request: Request): Promise<NextResponse> {
+  const viewer = await getViewer();
+  const readOnly = viewer && (await requireWritable(viewer));
+  if (readOnly) return NextResponse.json({ error: readOnly }, { status: 403 });
+
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ error: "Blob storage is not configured (BLOB_READ_WRITE_TOKEN is missing)." }, { status: 503 });
   }

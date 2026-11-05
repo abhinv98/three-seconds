@@ -107,7 +107,7 @@ function story(t: number, sulking: boolean): { mood: TickMood; lcd: string; card
   return { mood: "fail", lcd: "1.8", card: "fail", say: "Fail. Held 1.8s; this 28.0s Reel needs 9.33s." };
 }
 
-export function HeroRibbon() {
+export function HeroRibbon({ greeting }: { greeting?: React.ReactNode }) {
   const reduced = useReducedMotion();
   const sulking = useSulking();
   const sectionRef = useRef<HTMLElement>(null);
@@ -354,13 +354,14 @@ export function HeroRibbon() {
             </span>
           </h1>
           <div className="lp-hero2__aside">
+            {greeting}
             <p className="lp-hero2__lead">
               Three Seconds checks a creator’s Reel against the ASCI influencer guidelines before it goes live: is the ad
               labelled, in words ASCI allows, for long enough?
             </p>
             <div className="lp-hero2__actions">
-              <Link href="/check" className="lp-button">
-                Check an ad
+              <Link href="/sign-in?sample=meta" className="lp-button">
+                Check the Meta sample
               </Link>
               <Link href="/report/sample" className="lp-link lp-link--underline">
                 See the sample report

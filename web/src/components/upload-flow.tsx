@@ -152,7 +152,15 @@ export function UploadFlow({ storage, analysis }: UploadFlowProps) {
         setPhase({ kind: "idle" });
         return;
       }
-      setPhase({ kind: "failed", file, meta, step: "upload", message: (error as Error).message || "Upload failed." });
+      // The Blob client throws away /api/upload's message, and the signed-in Meta sample is the one case it refuses here.
+      const message = (error as Error).message || "Upload failed.";
+      setPhase({
+        kind: "failed",
+        file,
+        meta,
+        step: "upload",
+        message: message.includes("client token") ? "The upload couldn't start. If you're signed in to the read-only Meta sample, sign out and try again." : message,
+      });
       return;
     } finally {
       abortRef.current = null;

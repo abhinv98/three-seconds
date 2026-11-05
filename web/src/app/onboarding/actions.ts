@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { getViewer, normalizeWebsite, safeNext, saveOnboarding } from "@/lib/account";
 import { brandKits, buildBrandKit } from "@/lib/brand-kit";
+import { admitSpend } from "@/lib/check-reel";
+import { requireWritable } from "@/lib/sample";
 
 export type OnboardingState = { error: string } | null;
 
@@ -13,6 +15,8 @@ export async function finishOnboarding(_: OnboardingState, form: FormData): Prom
   if (!viewer) redirect("/sign-in?next=/onboarding");
   const next = safeNext(String(form.get("next") ?? ""));
   if (viewer.profile) redirect(next);
+  const readOnly = await requireWritable(viewer);
+  if (readOnly) return { error: readOnly };
   const text = (key: string, max: number) => String(form.get(key) ?? "").trim().slice(0, max);
   const role = form.get("role");
 
@@ -28,8 +32,9 @@ export async function finishOnboarding(_: OnboardingState, form: FormData): Prom
       niche: null,
       brand: { name, website, category: text("category", 60) || null, teamSize: text("teamSize", 20) || null },
     });
-    // The folder's brand kit is read from the website and the web while they look around (about a minute).
-    if (brandId && (await brandKits.claim(brandId))) after(() => buildBrandKit({ id: brandId, name, website }));
+    // The folder's brand kit is read from the website and the web while they look around (about a minute). Over the
+    // daily cap it just doesn't start: the overview offers the button, and pressing it says why.
+    if (brandId && !(await admitSpend("brand_kit")) && (await brandKits.claim(brandId))) after(() => buildBrandKit({ id: brandId, name, website }));
   } else if (role === "creator") {
     const displayName = text("displayName", 80) || viewer.user.name;
     const handle = text("handle", 40).replace(/^@+/, "") || null;

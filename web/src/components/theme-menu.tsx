@@ -63,21 +63,23 @@ const introBoot = `if(location.pathname==="/"){var d=document.documentElement,s=
 // It also marks <html> with "js" so pages can hide content for an entrance only when a script can reveal it.
 export const themeBootScript = `(function(){document.documentElement.classList.add("js");try{var t=localStorage.getItem("${STORAGE_KEY}");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t)}}catch(e){}try{${introBoot}}catch(e){}})();`;
 
-export function ThemeMenu() {
+/** `systemLabel` names what no choice means on this page; the landing page follows the visitor's local time. */
+export function ThemeMenu({ systemLabel = LABELS.system }: { systemLabel?: string }) {
   const choice = useSyncExternalStore(subscribe, readChoice, () => "system" as ThemeChoice);
+  const labels: Record<ThemeChoice, string> = { ...LABELS, system: systemLabel };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Theme: ${LABELS[choice]}`}>
+        <Button variant="ghost" size="icon-sm" aria-label={`Theme: ${labels[choice]}`}>
           <Contrast className="size-5" strokeWidth={2} aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuRadioGroup value={choice} onValueChange={(value) => applyChoice(value as ThemeChoice)}>
-          {(Object.keys(LABELS) as ThemeChoice[]).map((option) => (
+          {(Object.keys(labels) as ThemeChoice[]).map((option) => (
             <DropdownMenuRadioItem key={option} value={option}>
-              {LABELS[option]}
+              {labels[option]}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

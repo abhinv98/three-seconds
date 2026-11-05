@@ -9,6 +9,8 @@
   --paper-100: #f3f1ea;
   --paper-200: #e8e5dc;
   --paper-300: #c9c5ba;
+  --cream-50: #fbf7ec;
+  --cream-100: #f1e9d6;
   --stone-400: #9a978f;
   --stone-500: #7a776f;
   --stone-600: #5f5d57;
@@ -75,8 +77,9 @@
   --motion-progress: 200ms linear;
 }
 
-/* 2 and 3. Semantic and component tokens. Paper (light) is the default. */
-:root, [data-theme="light"] {
+/* 2 and 3. Semantic and component tokens. Paper (light) is the default. On the landing page, with no theme chosen, the
+   ground follows the visitor's local time (lib/daypart.ts), whatever the OS prefers. */
+:root, [data-theme="light"], html:not([data-theme]) .lp[data-ground="light"] {
   color-scheme: light;
   --background: var(--paper-100);
   --foreground: var(--ink-950);
@@ -126,7 +129,7 @@
   --chat-out: var(--signal-100);
 }
 
-[data-theme="dark"] {
+[data-theme="dark"], html:not([data-theme]) .lp[data-ground="dark"] {
   color-scheme: dark;
   --background: var(--ink-950);
   --foreground: var(--paper-100);

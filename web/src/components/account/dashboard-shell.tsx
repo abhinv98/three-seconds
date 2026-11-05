@@ -28,10 +28,11 @@ interface ShellProps {
   name: string;
   email: string;
   folder: string | null;
+  banner: string | null;
   children: React.ReactNode;
 }
 
-export function DashboardShell({ role, name, email, folder, children }: ShellProps) {
+export function DashboardShell({ role, name, email, folder, banner, children }: ShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const isActive = (href: string) => (href === "/dashboard" ? pathname === href : pathname.startsWith(href));
@@ -82,9 +83,12 @@ export function DashboardShell({ role, name, email, folder, children }: ShellPro
           </Button>
         </div>
       </aside>
-      <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
-        {children}
-      </main>
+      <div className="min-w-0">
+        {banner ? <p className="bg-foreground px-4 py-2 text-[13px] font-semibold text-background sm:px-6 lg:px-10">{banner}</p> : null}
+        <main id="main" className="min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

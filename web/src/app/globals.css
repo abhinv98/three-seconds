@@ -3,8 +3,8 @@
 @import "shadcn/tailwind.css";
 @import "./tokens.css";
 
-/* App-level component tokens. The video plate stays ink in Paper, one step up from the ground in Ink.
-   Gloss tokens shape the tactile buttons: a vertical gradient, a shaded bottom and a lit top edge. */
+/* App-level component tokens. The video plate stays ink in Paper, one step up from the ground in Ink. A button's border
+   is ink in every theme; on a dark ground a keyline outside it is what makes that border read. */
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -14,46 +14,16 @@
 [data-theme="light"] {
   --viewer-plate: var(--ink-950);
   --viewer-plate-foreground: var(--paper-100);
-  --gloss-primary-top: var(--ink-800);
-  --gloss-primary-bottom: var(--ink-950);
-  --gloss-primary-shade: rgb(0 0 0 / 0.55);
-  --gloss-primary-glow: rgb(255 255 255 / 0.2);
-  --gloss-primary-line: rgb(255 255 255 / 0.1);
-  --gloss-secondary-top: var(--paper-0);
-  --gloss-secondary-bottom: var(--paper-200);
-  --gloss-secondary-ring: var(--ink-950);
-  --gloss-secondary-shade: rgb(18 18 18 / 0.1);
-  --gloss-secondary-line: rgb(255 255 255 / 0.8);
-  --gloss-lift: 0 1px 2px rgb(18 18 18 / 0.14);
+  --btn-keyline: transparent;
 }
 [data-theme="dark"] {
   --viewer-plate: var(--ink-900);
-  --gloss-primary-top: var(--paper-0);
-  --gloss-primary-bottom: var(--paper-200);
-  --gloss-primary-shade: rgb(18 18 18 / 0.18);
-  --gloss-primary-glow: rgb(255 255 255 / 0.7);
-  --gloss-primary-line: rgb(255 255 255 / 0.5);
-  --gloss-secondary-top: var(--ink-800);
-  --gloss-secondary-bottom: var(--ink-900);
-  --gloss-secondary-ring: var(--stone-500);
-  --gloss-secondary-shade: rgb(0 0 0 / 0.5);
-  --gloss-secondary-line: rgb(255 255 255 / 0.08);
-  --gloss-lift: 0 1px 2px rgb(0 0 0 / 0.5);
+  --btn-keyline: rgb(243 241 234 / 0.5);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --viewer-plate: var(--ink-900);
-    --gloss-primary-top: var(--paper-0);
-    --gloss-primary-bottom: var(--paper-200);
-    --gloss-primary-shade: rgb(18 18 18 / 0.18);
-    --gloss-primary-glow: rgb(255 255 255 / 0.7);
-    --gloss-primary-line: rgb(255 255 255 / 0.5);
-    --gloss-secondary-top: var(--ink-800);
-    --gloss-secondary-bottom: var(--ink-900);
-    --gloss-secondary-ring: var(--stone-500);
-    --gloss-secondary-shade: rgb(0 0 0 / 0.5);
-    --gloss-secondary-line: rgb(255 255 255 / 0.08);
-    --gloss-lift: 0 1px 2px rgb(0 0 0 / 0.5);
+    --btn-keyline: rgb(243 241 234 / 0.5);
   }
 }
 
@@ -150,60 +120,40 @@
   }
 }
 
-/* Tactile buttons (shaped after the L&T Diwali share buttons, in Three Seconds colours). */
+/* Buttons: flat fills, 6px corners and an ink border in every theme, so the label on them is always ink too. */
 @layer components {
-  .btn-gloss {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
+  .btn-flat {
+    border: var(--stroke-control) solid var(--ink-950);
+    color: var(--ink-950);
+    box-shadow: 0 0 0 1px var(--btn-keyline);
     -webkit-tap-highlight-color: transparent;
     transition:
-      transform 160ms var(--ease-out),
-      filter 160ms ease;
+      transform 140ms var(--ease-out),
+      background-color 120ms ease-out;
   }
-  .btn-gloss:active {
+  .btn-flat:active {
     transform: scale(0.97);
   }
-  @media (hover: hover) and (pointer: fine) {
-    .btn-gloss:hover {
-      filter: brightness(1.06) saturate(1.04);
-    }
+  .btn-flat-primary {
+    background: var(--brand);
   }
-  .btn-gloss-brand {
-    color: var(--brand-foreground);
-    background-image: linear-gradient(var(--signal-400) 58%, var(--signal-500) 92%);
-    box-shadow:
-      inset 0 -3px 8px rgb(122 34 0 / 0.32),
-      inset 0 1px 3px rgb(255 236 222 / 0.65),
-      inset 0 2px 2px rgb(255 255 255 / 0.3),
-      var(--gloss-lift);
+  .btn-flat-secondary {
+    background: var(--cream-50);
   }
-  .btn-gloss-primary {
-    color: var(--primary-foreground);
-    background-image: linear-gradient(var(--gloss-primary-top) 58%, var(--gloss-primary-bottom) 92%);
-    box-shadow:
-      inset 0 -3px 8px var(--gloss-primary-shade),
-      inset 0 1px 3px var(--gloss-primary-glow),
-      inset 0 2px 2px var(--gloss-primary-line),
-      var(--gloss-lift);
-  }
-  .btn-gloss-secondary {
-    color: var(--foreground);
-    background-image: linear-gradient(var(--gloss-secondary-top) 58%, var(--gloss-secondary-bottom) 92%);
-    box-shadow:
-      inset 0 0 0 1px var(--gloss-secondary-ring),
-      inset 0 -3px 8px var(--gloss-secondary-shade),
-      inset 0 2px 2px var(--gloss-secondary-line),
-      var(--gloss-lift);
-  }
-  .btn-gloss-destructive {
+  .btn-flat-destructive {
+    background: var(--destructive);
     color: var(--destructive-foreground);
-    background-image: linear-gradient(color-mix(in oklab, var(--destructive), white 14%) 58%, var(--destructive) 92%);
-    box-shadow:
-      inset 0 -3px 8px rgb(60 0 10 / 0.35),
-      inset 0 1px 3px rgb(255 220 226 / 0.35),
-      inset 0 2px 2px rgb(255 255 255 / 0.18),
-      var(--gloss-lift);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-flat-primary:hover {
+      background: var(--brand-hover);
+    }
+    .btn-flat-secondary:hover {
+      background: var(--cream-100);
+    }
+    .btn-flat-destructive:hover {
+      background: var(--destructive-hover);
+    }
   }
 }
 

@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import meta_api
-from pipeline.frames import VideoError, sample_frames
+from pipeline.frames import SAFE_INPUT, VideoError, sample_frames
 
 TRACK_FPS = 15
 TRACK_WIDTH = 540
@@ -33,8 +33,11 @@ PARALLEL_TRACKS = 4
 log = logging.getLogger(__name__)
 
 
-def _ffmpeg(args: list[str]) -> bytes:
-    result = subprocess.run(["ffmpeg", "-v", "error", *args], check=False, capture_output=True, timeout=120)
+def run_ffmpeg(args: list[str]) -> bytes:
+    try:
+        result = subprocess.run(["ffmpeg", "-v", "error", *args], check=False, capture_output=True, timeout=120)
+    except subprocess.TimeoutExpired as e:
+        raise VideoError("ffmpeg took too long on this video") from e
     if result.returncode != 0:
         raise VideoError(f"ffmpeg failed: {result.stderr.decode(errors='replace').strip()[:200]}")
     return result.stdout
@@ -42,8 +45,8 @@ def _ffmpeg(args: list[str]) -> bytes:
 
 def still(video: Path, t: float, width: int) -> bytes:
     """One JPEG frame at t seconds, `width` px wide."""
-    return _ffmpeg(
-        ["-ss", f"{max(t, 0):.3f}", "-i", str(video), "-frames:v", "1", "-vf", f"scale={width}:-2"]
+    return run_ffmpeg(
+        ["-ss", f"{max(t, 0):.3f}", *SAFE_INPUT, "-i", str(video), "-frames:v", "1", "-vf", f"scale={width}:-2"]
         + ["-q:v", "4", "-f", "image2pipe", "-vcodec", "mjpeg", "-"]
     )
 
@@ -71,16 +74,18 @@ def window(t: float, t_start: float, t_end: float, duration: float) -> tuple[flo
     return round(a, 3), round(b, 3)
 
 
-def cut(video: Path, a: float, b: float, out: Path) -> tuple[int, int]:
-    """Re-encode [a, b] at TRACK_FPS and TRACK_WIDTH as H.264 with no audio; returns the clip's width and height."""
-    _ffmpeg(
-        ["-y", "-ss", f"{a:.3f}", "-i", str(video), "-t", f"{b - a:.3f}", "-an"]
-        + ["-vf", f"fps={TRACK_FPS},scale={TRACK_WIDTH}:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26"]
+def cut(
+    video: Path, a: float, b: float, out: Path, fps: int = TRACK_FPS, width: int = TRACK_WIDTH
+) -> tuple[int, int]:
+    """Re-encode [a, b] at fps and width as H.264 with no audio; returns the clip's width and height."""
+    run_ffmpeg(
+        ["-y", "-ss", f"{a:.3f}", *SAFE_INPUT, "-i", str(video), "-t", f"{b - a:.3f}", "-an"]
+        + ["-vf", f"fps={fps}:start_time=0,scale={width}:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26"]
         + ["-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)]
     )
     size = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0"]
-        + [str(out)],
+        ["ffprobe", "-v", "error", *SAFE_INPUT, "-select_streams", "v:0", "-show_entries", "stream=width,height"]
+        + ["-of", "csv=p=0", "-i", str(out)],
         check=True,
         capture_output=True,
         text=True,

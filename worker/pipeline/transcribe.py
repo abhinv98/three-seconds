@@ -21,6 +21,7 @@ from pathlib import Path
 
 import meta_api
 from models import TranscriptSegment
+from pipeline.frames import SAFE_INPUT
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class Audio:
 def listen(video: Path) -> Audio:
     """Transcribe the video's audio track. Never raises: a failure is Audio(checked=False, failed=True)."""
     try:
-        if not _has_audio_track(video):
+        if not has_audio_track(video):
             return Audio(checked=True, has_track=False)
         if not os.environ.get("META_API_KEY"):
             log.info("audio not checked: META_API_KEY is not set")
@@ -48,8 +49,8 @@ def listen(video: Path) -> Audio:
         with tempfile.TemporaryDirectory() as tmp:
             wav = Path(tmp, "audio.wav")
             subprocess.run(
-                ["ffmpeg", "-v", "error", "-i", str(video), "-vn", "-ac", "1", "-ar", "24000", "-c:a", "pcm_s16le"]
-                + ["-map_metadata", "-1", str(wav)],
+                ["ffmpeg", "-v", "error", *SAFE_INPUT, "-i", str(video), "-vn", "-ac", "1", "-ar", "24000"]
+                + ["-c:a", "pcm_s16le", "-map_metadata", "-1", str(wav)],
                 check=True,
                 capture_output=True,
                 timeout=60,
@@ -63,10 +64,10 @@ def listen(video: Path) -> Audio:
         return Audio(checked=False, failed=True)
 
 
-def _has_audio_track(video: Path) -> bool:
+def has_audio_track(video: Path) -> bool:
     streams = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0"]
-        + [str(video)],
+        ["ffprobe", "-v", "error", *SAFE_INPUT, "-select_streams", "a", "-show_entries", "stream=index"]
+        + ["-of", "csv=p=0", "-i", str(video)],
         check=True,
         capture_output=True,
         text=True,

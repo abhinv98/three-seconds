@@ -10,6 +10,7 @@ are free. (languageBias is left out: in our tests it merged turns and doubled wo
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import logging
 import os
@@ -29,6 +30,9 @@ _RETRY_STATUS = {429, 500, 503}
 """The API's own retry list: a 504 repeats if retried unchanged, and a 4xx never succeeds on a retry."""
 _MAX_WAIT_S = 10.0
 """Longest single backoff, Retry-After included (a 503 asks for 60s): the audio isn't worth holding the report."""
+_NETWORK_ERRORS = (OSError, http.client.HTTPException)
+"""urlopen wraps only the send in URLError. RemoteDisconnected, a reset or IncompleteRead while the answer is read
+come through bare, and IncompleteRead isn't an OSError."""
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +48,8 @@ def transcribe(wav: bytes, *, attempts: int = 3, timeout_s: float = 90) -> tuple
         The JSON answer and what it cost in USD.
 
     Raises:
-        MetaAPIError: no META_API_KEY, an HTTP error, a timeout on the last attempt, or an answer that isn't JSON.
+        MetaAPIError: no META_API_KEY, an HTTP error, a timeout or lost connection on the last attempt, or an answer
+            that isn't JSON.
     """
     key = os.environ.get("META_API_KEY")
     if not key:
@@ -75,10 +80,9 @@ def transcribe(wav: bytes, *, attempts: int = 3, timeout_s: float = 90) -> tuple
             break
         except urllib.error.HTTPError as e:
             if e.code not in _RETRY_STATUS or last:
-                detail = e.read().decode(errors="replace")[:300]
-                raise MetaAPIError(f"{TRANSCRIBE_MODEL}: HTTP {e.code}: {detail}") from e
+                raise MetaAPIError(f"{TRANSCRIBE_MODEL}: HTTP {e.code}: {_error_body(e)}") from e
             wait = _seconds(e.headers.get("Retry-After"), default=2**attempt)
-        except (urllib.error.URLError, TimeoutError) as e:
+        except _NETWORK_ERRORS as e:
             if last:
                 raise MetaAPIError(f"{TRANSCRIBE_MODEL}: {e}") from e
             wait = 2**attempt
@@ -97,6 +101,14 @@ def transcribe(wav: bytes, *, attempts: int = 3, timeout_s: float = 90) -> tuple
         time.monotonic() - started,
     )
     return data, cost
+
+
+def _error_body(error: urllib.error.HTTPError) -> str:
+    """The connection can drop while the error's own body is being read."""
+    try:
+        return error.read().decode(errors="replace")[:300]
+    except _NETWORK_ERRORS as e:
+        return f"(body lost: {e!r})"
 
 
 def _seconds(header: str | None, default: float) -> float:
@@ -136,13 +148,18 @@ class SamBox:
     confidence: float | None
 
 
+def strip_masks(text: str) -> str:
+    """SAM 3.1 has no option to leave masks out, and they are most of its output."""
+    return _MASK.sub("", text)
+
+
 def parse_sam_records(text: str) -> list[SamBox]:
     """Boxes from SAM 3.1 output: `<Nf>id<|box;x1=..;...;w=..;h=..;c=..|><|mask;...|>,id<|box...|>` per frame.
 
     Masks are dropped first (box-local rasters we don't need), so their payload can't be misread as a record.
     """
     out: list[SamBox] = []
-    parts = _FRAME.split(_MASK.sub("", text))
+    parts = _FRAME.split(strip_masks(text))
     for i in range(1, len(parts) - 1, 2):
         for m in _BOX.finditer(parts[i + 1]):
             out.append(
@@ -161,15 +178,17 @@ def parse_sam_records(text: str) -> list[SamBox]:
     return out
 
 
-def read_sam_stream(lines: Iterable[bytes]) -> tuple[list[SamBox], int]:
-    """The boxes from a streamed /v1/responses answer, and the frames billed.
+def read_sam_lines(lines: Iterable[bytes], deadline: float | None = None) -> tuple[list[str], int]:
+    """The frame lines of a streamed /v1/responses answer, and the frames billed.
 
     One `response.output_text.delta` per frame with objects, then `response.completed` with the usage. Failures
-    mid-stream arrive as a `response.failed` or `error` event under HTTP 200.
+    mid-stream arrive as a `response.failed` or `error` event under HTTP 200. A stream that stops before
+    `response.completed` counts as a lost connection even if the socket closed cleanly: the lines would be partial.
     """
-    boxes: list[SamBox] = []
-    frames = 0
+    out: list[str] = []
     for raw in lines:
+        if deadline is not None and time.monotonic() > deadline:
+            raise MetaAPIError(f"{SAM_MODEL}: out of time")
         line = raw.decode("utf-8", "replace").strip()
         if not line.startswith("data:"):
             continue
@@ -179,24 +198,26 @@ def read_sam_stream(lines: Iterable[bytes]) -> tuple[list[SamBox], int]:
             continue
         kind = event.get("type", "")
         if kind == "response.output_text.delta":
-            boxes += parse_sam_records(str(event.get("delta", "")))
+            if delta := str(event.get("delta", "")).strip():
+                out.append(delta)
         elif kind == "response.completed":
             usage = (event.get("response") or {}).get("usage") or event.get("usage") or {}
-            frames = int(usage.get("video_frames_processed") or 0)
+            return out, int(usage.get("video_frames_processed") or 0)
         elif kind in ("response.failed", "error"):
             raise MetaAPIError(f"{SAM_MODEL}: {json.dumps(event)[:300]}")
-    return boxes, frames
+    raise ConnectionError("the stream ended before response.completed")
 
 
-def sam_track(mp4: bytes, prompt: str, *, attempts: int = 3, timeout_s: float = 120) -> tuple[list[SamBox], float]:
-    """Track what a box prompt points at through a short MP4 (sent inline, so keep it well under 50 MB).
+def read_sam_stream(lines: Iterable[bytes]) -> tuple[list[SamBox], int]:
+    """The boxes from a streamed /v1/responses answer, and the frames billed."""
+    text, frames = read_sam_lines(lines)
+    return [box for line in text for box in parse_sam_records(line)], frames
 
-    Returns:
-        Every box SAM 3.1 returned, and what the request cost in USD.
 
-    Raises:
-        MetaAPIError: no META_API_KEY, an HTTP error, a failure event, or a timeout on the last attempt.
-    """
+def _sam_call(
+    prompt: str, mp4: bytes, fields: dict, attempts: int, timeout_s: float, deadline: float | None = None
+) -> tuple[list[str], int]:
+    """One streamed request, sent inline, with retries. Returns the frame lines and the frames billed."""
     key = os.environ.get("META_API_KEY")
     if not key:
         raise MetaAPIError("META_API_KEY is not set")
@@ -214,31 +235,87 @@ def sam_track(mp4: bytes, prompt: str, *, attempts: int = 3, timeout_s: float = 
                     ],
                 }
             ],
-            "metadata": {"include_confidence": "true", "mask_encoding": "one_bit", "propagation_direction": "both"},
+            **fields,
         }
     ).encode()
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "Accept": "text/event-stream"}
-    started = time.monotonic()
     for attempt in range(attempts):
         last = attempt == attempts - 1
+        left = timeout_s if deadline is None else min(timeout_s, deadline - time.monotonic())
+        if left <= 0:
+            raise MetaAPIError(f"{SAM_MODEL}: out of time")
         try:
             request = urllib.request.Request(f"{BASE_URL}/responses", body, headers)
-            with urllib.request.urlopen(request, timeout=timeout_s) as response:
-                boxes, frames = read_sam_stream(response)
-            break
+            with urllib.request.urlopen(request, timeout=left) as response:
+                return read_sam_lines(response, deadline)
         except urllib.error.HTTPError as e:
             if e.code not in _RETRY_STATUS or last:
-                detail = e.read().decode(errors="replace")[:300]
-                raise MetaAPIError(f"{SAM_MODEL}: HTTP {e.code}: {detail}") from e
+                raise MetaAPIError(f"{SAM_MODEL}: HTTP {e.code}: {_error_body(e)}") from e
             wait = _seconds(e.headers.get("Retry-After"), default=2**attempt)
-        except (urllib.error.URLError, TimeoutError) as e:
+        except _NETWORK_ERRORS as e:
             if last:
                 raise MetaAPIError(f"{SAM_MODEL}: {e}") from e
             wait = 2**attempt
+        log.warning("%s: attempt %d of %d failed, trying again", SAM_MODEL, attempt + 1, attempts)
         time.sleep(min(wait, _MAX_WAIT_S) + random.uniform(0, 0.25))
+    raise MetaAPIError(f"{SAM_MODEL}: no attempts made")
 
-    cost = max(frames, MIN_FRAMES_BILLED) * USD_PER_1000_FRAMES / 1000
+
+def _sam_cost(frames: int) -> float:
+    return max(frames, MIN_FRAMES_BILLED) * USD_PER_1000_FRAMES / 1000
+
+
+def sam_track(mp4: bytes, prompt: str, *, attempts: int = 3, timeout_s: float = 120) -> tuple[list[SamBox], float]:
+    """Track what a box prompt points at through a short MP4 (sent inline, so keep it well under 50 MB).
+
+    Returns:
+        Every box SAM 3.1 returned, and what the request cost in USD.
+
+    Raises:
+        MetaAPIError: no META_API_KEY, an HTTP error, a failure event, or a timeout or lost connection on the last
+            attempt.
+    """
+    started = time.monotonic()
+    metadata = {"include_confidence": "true", "mask_encoding": "one_bit", "propagation_direction": "both"}
+    lines, frames = _sam_call(prompt, mp4, {"metadata": metadata}, attempts, timeout_s)
+    boxes = [box for line in lines for box in parse_sam_records(line)]
+    cost = _sam_cost(frames)
     log.info(
         "%s: %d frames billed, %d boxes, $%.4f, %.1fs", SAM_MODEL, frames, len(boxes), cost, time.monotonic() - started
     )
     return boxes, cost
+
+
+def sam_segment(
+    mp4: bytes, phrase: str, *, attempts: int = 3, timeout_s: float = 120, deadline: float | None = None
+) -> tuple[list[str], float]:
+    """Find a text concept through a whole Reel.
+
+    A retry after a stream was lost may be billed again: the docs don't say whether an interrupted stream is free.
+
+    Args:
+        mp4: H.264 video, sent inline.
+        phrase: The concept, such as "person" or "sunglasses".
+        deadline: time.monotonic() value to give up at, for the caller's own time limit.
+
+    Returns:
+        The raw frame lines (one per frame with a match) and what the request cost in USD.
+
+    Raises:
+        MetaAPIError: no META_API_KEY, an HTTP error, a failure event, out of time, or a timeout or lost connection on
+            the last attempt.
+    """
+    started = time.monotonic()
+    fields = {"store": False, "metadata": {"include_confidence": "true", "mask_encoding": "one_bit"}}
+    lines, frames = _sam_call(phrase, mp4, fields, attempts, timeout_s, deadline)
+    cost = _sam_cost(frames)
+    log.info(
+        "%s %r: %d frames billed, %d lines, $%.4f, %.1fs",
+        SAM_MODEL,
+        phrase,
+        frames,
+        len(lines),
+        cost,
+        time.monotonic() - started,
+    )
+    return lines, cost

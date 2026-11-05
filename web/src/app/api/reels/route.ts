@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { failReel, finishReel, getViewer, startReel, type Member } from "@/lib/account";
 import { admitCheck, runCheck } from "@/lib/check-reel";
+import { requireWritable } from "@/lib/sample";
 
 // A signed-in member checks a Reel. The browser has already uploaded it to Vercel Blob (with a token from
 // /api/upload); this records it, has the worker check it and keeps the report.
@@ -10,6 +11,8 @@ export const maxDuration = 300;
 export async function POST(request: Request) {
   const viewer = await getViewer();
   if (!viewer?.profile) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
+  const readOnly = await requireWritable(viewer);
+  if (readOnly) return NextResponse.json({ error: readOnly }, { status: 403 });
 
   const body = (await request.json().catch(() => null)) as { url?: unknown; filename?: unknown } | null;
   const url = typeof body?.url === "string" ? body.url : "";

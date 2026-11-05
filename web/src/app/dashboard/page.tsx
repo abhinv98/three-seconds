@@ -2,7 +2,7 @@ import { Upload } from "lucide-react";
 import Link from "next/link";
 import { BrandKitPanel } from "@/components/account/brand-kit-panel";
 import { CopyLink } from "@/components/account/copy-link";
-import { EmptyState, PageHeader, Panel, ReelTable } from "@/components/account/bits";
+import { EmptyState, Notice, PageHeader, Panel, ReelTable } from "@/components/account/bits";
 import { Tick } from "@/components/landing/tick";
 import { Button } from "@/components/ui/button";
 import { brandCreators, creatorBrands, reelsFor, requireMember, siteOrigin, type Member } from "@/lib/account";
@@ -14,7 +14,8 @@ export const maxDuration = 300;
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireMember("/dashboard");
-  const welcome = (await searchParams).welcome === "1";
+  const query = await searchParams;
+  const welcome = query.welcome === "1";
   const reels = await reelsFor(viewer);
   const done = reels.filter((r) => r.status === "done");
   const passed = done.filter((r) => r.verdict === "PASS").length;
@@ -37,6 +38,7 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   return (
     <div className="grid gap-6">
       {welcome ? <Welcome viewer={viewer} /> : null}
+      {typeof query.error === "string" ? <Notice tone="fail">{query.error}</Notice> : null}
       <PageHeader
         title={brand ? brand.name : `Hi, ${viewer.profile.display_name.split(" ")[0]}`}
         description={brand ? `${brand.website.replace(/^https:\/\//, "")} · your brand folder` : "Check a Reel before it goes anywhere, then send the passing ones to your brands."}

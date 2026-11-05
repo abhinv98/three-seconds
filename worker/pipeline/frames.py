@@ -15,6 +15,7 @@ the slots k inside the windows.
 
 from __future__ import annotations
 
+import http.client
 import json
 import math
 import subprocess
@@ -30,6 +31,9 @@ MAX_BYTES = 100 * 1024 * 1024
 """Same limits as web/src/lib/limits.ts; the worker enforces them again because its URL is public."""
 MAX_DURATION_S = 90.0
 BLOB_HOST_SUFFIX = ".public.blob.vercel-storage.com"
+SAFE_INPUT = ["-protocol_whitelist", "file,pipe", "-f", "mov"]
+"""Goes before every -i of an uploaded file. Left to itself ffmpeg picks a demuxer from the bytes, and an HLS playlist
+or a concat list then makes it fetch URLs or read local files. Forced to the MP4/MOV demuxer those are just unreadable."""
 
 
 class VideoError(ValueError):
@@ -61,7 +65,7 @@ def download(url: str, dest: Path) -> Path:
                 if size > MAX_BYTES:
                     raise VideoError(f"Video is larger than {MAX_BYTES // (1024 * 1024)} MB")
                 out.write(chunk)
-    except OSError as e:
+    except (OSError, http.client.HTTPException) as e:
         raise VideoError(f"Could not download the video: {e}") from e
     return dest
 
@@ -69,8 +73,8 @@ def download(url: str, dest: Path) -> Path:
 def probe(video: Path) -> tuple[float, int, int]:
     """Duration in seconds, width and height of the first video stream."""
     result = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "format=duration:stream=width,height"]
-        + ["-of", "json", str(video)],
+        ["ffprobe", "-v", "error", *SAFE_INPUT, "-select_streams", "v:0"]
+        + ["-show_entries", "format=duration:stream=width,height", "-of", "json", "-i", str(video)],
         check=False,
         capture_output=True,
         text=True,
@@ -80,7 +84,7 @@ def probe(video: Path) -> tuple[float, int, int]:
         stream = info["streams"][0]
         duration = float(info["format"]["duration"])
     except (ValueError, KeyError, IndexError) as e:
-        raise VideoError(f"Not a readable video: {result.stderr.strip()[:200]}") from e
+        raise VideoError(f"Not a readable MP4 or MOV video: {result.stderr.strip()[:200]}") from e
     if duration > MAX_DURATION_S + 0.5:
         raise VideoError(f"Video is {duration:.0f}s long; the limit is {MAX_DURATION_S:.0f}s")
     return duration, int(stream["width"]), int(stream["height"])
@@ -115,7 +119,7 @@ def sample_frames(
         )
         vf += ",select='" + "+".join(f"eq(n,{k})" for k in slots) + "'"
     result = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(video), "-vf", f"{vf},scale='min({max_width},iw)':-2"]
+        ["ffmpeg", "-v", "error", *SAFE_INPUT, "-i", str(video), "-vf", f"{vf},scale='min({max_width},iw)':-2"]
         + ["-fps_mode", "passthrough", "-q:v", str(quality), str(out_dir / "%05d.jpg")],
         check=False,
         capture_output=True,

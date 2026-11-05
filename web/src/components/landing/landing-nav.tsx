@@ -59,15 +59,20 @@ export function LandingNav() {
                 </a>
               </li>
             ))}
+            <li className="lp-nav__menu-signin">
+              <Link href="/dashboard" className="lp-link">
+                Sign in
+              </Link>
+            </li>
           </ul>
         </details>
         <div className="lp-nav__end">
-          <ThemeMenu />
+          <ThemeMenu systemLabel="Time of day" />
           <Link href="/dashboard" className="lp-link">
             Sign in
           </Link>
-          <Link href="/check" className="lp-button lp-button--small">
-            Check an ad
+          <Link href="/sign-in?sample=meta" className="lp-button lp-button--small">
+            Check the Meta sample
           </Link>
         </div>
       </nav>
