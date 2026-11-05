@@ -280,3 +280,390 @@
 .command-palette::backdrop {
   background: rgb(18 18 18 / 0.4);
 }
+
+/* The overview. A hairline between KPIs: drawn on the cell's own edges, so it survives the grid rewrapping. */
+.kpi {
+  box-shadow:
+    1px 0 0 0 var(--border),
+    0 1px 0 0 var(--border);
+}
+@media (hover: hover) and (pointer: fine) {
+  .row-hover,
+  .kpi-link {
+    transition: background-color 120ms ease-out, color 120ms ease-out;
+  }
+  .row-hover:hover {
+    background: color-mix(in oklab, var(--muted) 55%, transparent);
+  }
+  .kpi-link:hover {
+    color: var(--foreground);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* The Reels library. */
+.reel-card {
+  transition: transform 140ms var(--ease-out);
+}
+.reel-card:active {
+  transform: scale(0.98);
+}
+@media (hover: hover) and (pointer: fine) {
+  .filter-chip:not([aria-pressed="true"]):hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+  .reel-card:hover p:first-of-type {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+/* The verdict as a rubber stamp. Multiply lets the paper show through the ink; on a dark card there's no ink effect to get. */
+.stamp-ink {
+  border: 3px solid currentColor;
+  border-radius: 6px;
+  transform: rotate(-3deg);
+  filter: url(#stamp-rough);
+  mix-blend-mode: multiply;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stamp-ink {
+    mix-blend-mode: normal;
+  }
+}
+[data-theme="dark"] .stamp-ink {
+  mix-blend-mode: normal;
+}
+/* The server's HTML hides what the stamp reveals, until the browser knows whether this is the first look. */
+[data-reveal="wait"] [data-stamp],
+[data-reveal="wait"] [data-after-stamp] {
+  opacity: 0;
+}
+
+/* The check screen (components/account/reel-upload.tsx): a dark stage in every theme, like the video plate. */
+.check-stage {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--ink-950);
+  color: var(--paper-100);
+  outline: 1.5px solid transparent;
+  outline-offset: -1.5px;
+  transition:
+    opacity 200ms ease-out,
+    outline-color 120ms ease-out;
+}
+.check-stage-over {
+  outline-color: var(--signal-500);
+}
+.check-stage-handover {
+  opacity: 0;
+  transition-delay: 240ms;
+}
+.check-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgb(243 241 234 / 0.12);
+}
+.check-body {
+  display: grid;
+  grid-template-columns: minmax(0, 34fr) minmax(0, 66fr);
+  gap: 10px;
+  padding: 10px;
+  height: 300px;
+}
+.check-monitor {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgb(243 241 234 / 0.06);
+}
+.check-wall {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.check-wall-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+.check-wall-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.check-marker {
+  position: absolute;
+  outline: 1.5px solid var(--signal-500);
+  outline-offset: 0;
+  opacity: 0;
+}
+/* The line sits on the real frontier while frames are pulled, then sweeps while the server reads. */
+.check-scan {
+  position: absolute;
+  inset: 0;
+  transition: transform 120ms linear;
+}
+.check-scan::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  top: -2px;
+  height: 2px;
+  background: var(--signal-500);
+  box-shadow: 0 0 14px 1px rgb(234 78 18 / 0.7);
+}
+.check-scan::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 100% 0;
+  height: 16%;
+  margin-bottom: 2px;
+  transform: translateY(-2px);
+  background: rgb(234 78 18 / 0.1);
+}
+[data-sweeping] .check-scan {
+  transition: none;
+  animation: check-sweep 6s linear infinite;
+}
+@keyframes check-sweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(116%);
+  }
+}
+.check-steps {
+  display: grid;
+  border-top: 1px solid rgb(243 241 234 / 0.12);
+}
+.check-step {
+  position: relative;
+  padding: 12px 14px;
+}
+.check-step + .check-step {
+  border-top: 1px solid rgb(243 241 234 / 0.12);
+}
+.check-step[data-state="waiting"] {
+  opacity: 0.45;
+}
+.check-step[data-state="fail"] {
+  color: var(--fail-400);
+}
+.check-step-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  overflow: hidden;
+}
+.check-step-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--signal-500);
+  transform-origin: 0 50%;
+  transition: transform 200ms linear;
+}
+.check-step-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 4px;
+  background: rgb(243 241 234 / 0.12);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+.check-step[data-state="done"] .check-step-mark {
+  background: var(--pass-400);
+  color: var(--ink-950);
+}
+.check-step[data-state="active"] .check-step-mark {
+  background: var(--signal-500);
+  color: var(--ink-950);
+}
+.check-spin {
+  animation: check-spin 900ms linear infinite;
+}
+@keyframes check-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.check-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+.check-drop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  cursor: pointer;
+  background: rgb(18 18 18 / 0.35);
+}
+.check-drop:has(input:focus-visible) .check-drop-card {
+  outline: 2px solid var(--signal-400);
+  outline-offset: 4px;
+}
+.check-drop-card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  border-radius: 10px;
+  background: rgb(18 18 18 / 0.86);
+  text-align: center;
+}
+@media (min-width: 1024px) {
+  .check-body {
+    height: clamp(360px, calc(100dvh - 350px), 640px);
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 12px;
+    gap: 12px;
+  }
+  .check-monitor {
+    aspect-ratio: 9 / 16;
+    height: 100%;
+  }
+  .check-steps {
+    grid-template-columns: 1fr 0.8fr 1.5fr;
+  }
+  .check-step + .check-step {
+    border-top: 0;
+    border-left: 1px solid rgb(243 241 234 / 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-sweeping] .check-scan {
+    animation: none;
+    opacity: 0;
+  }
+  .check-spin {
+    animation: none;
+  }
+}
+
+/* The brand folder (components/brand). The plate is fixed, not themed: a logo was drawn for paper or for dark. */
+.kit-plate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 208px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--paper-300);
+  border-radius: 8px;
+  background: var(--paper-50);
+}
+.kit-plate-dark {
+  border-color: var(--ink-950);
+  background: var(--ink-950);
+}
+.kit-plate-waiting {
+  border-style: dashed;
+  border-color: var(--input);
+  background: transparent;
+}
+.kit-logo {
+  width: 84%;
+  height: 84%;
+  object-fit: contain;
+  transition: opacity 420ms ease-out;
+}
+.kit-logo-waiting {
+  opacity: 0;
+}
+.kit-stipple {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 420ms ease-out;
+}
+.kit-stipple-gone {
+  opacity: 0;
+}
+.kit-step[data-current] span:last-child {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.kit [data-rise] {
+  transition:
+    opacity 300ms ease-out,
+    transform 300ms var(--ease-out);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+.kit-swatch {
+  transform-origin: 50% 0;
+  transition:
+    transform 340ms var(--ease-out),
+    opacity 140ms ease-out;
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+.kit-band {
+  transform-origin: 0 50%;
+  transition:
+    transform 620ms var(--ease-in-out) 120ms,
+    opacity 160ms ease-out 120ms;
+}
+.kit[data-reveal="done"] [data-rise],
+.kit[data-reveal="done"] .kit-swatch,
+.kit[data-reveal="done"] .kit-band {
+  transition: none;
+}
+.kit[data-reveal="wait"] .kit-logo,
+.kit[data-reveal="wait"] [data-rise],
+.kit[data-reveal="play"] [data-rise] {
+  opacity: 0;
+}
+.kit[data-reveal="wait"] [data-rise],
+.kit[data-reveal="play"] [data-rise] {
+  transform: translateY(8px);
+}
+.kit[data-reveal="wait"] .kit-swatch,
+.kit[data-reveal="play"] .kit-swatch {
+  opacity: 0;
+  transform: perspective(420px) rotateX(-84deg);
+}
+.kit[data-reveal="wait"] .kit-band,
+.kit[data-reveal="play"] .kit-band {
+  opacity: 0;
+  transform: scaleX(0.05);
+}
+
+/* The weekly chart's tooltip: CSS only, and only opacity moves. */
+.trend-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: 5;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--ink-950);
+  color: var(--paper-100);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.trend-column:hover .trend-tip {
+  opacity: 1;
+}

@@ -4,7 +4,7 @@ import { db, get, run } from "@/lib/db";
 // don't start two reads, and finished or failed when it ends. A read that started longer ago than a function
 // can run died with its server, so it counts as failed and may start again.
 
-const STALE_MS = 7 * 60_000;
+export const STALE_MS = 7 * 60_000;
 
 export interface Job<T> {
   status: "reading" | "done" | "error";

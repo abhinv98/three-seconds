@@ -30,23 +30,35 @@ const SOFT: Record<Status, string> = {
   pending: "bg-muted text-muted-foreground",
 };
 
-interface StatusBadgeProps {
+/** A rubber stamp: ink outline and ink word on the paper (.stamp-ink in globals.css roughens the edges). */
+const STAMP: Record<Status, string> = {
+  pass: "stamp-ink text-pass-text",
+  fail: "stamp-ink text-fail-text",
+  review: "stamp-ink text-review-text",
+  info: "stamp-ink text-foreground",
+  running: "stamp-ink text-foreground",
+  pending: "stamp-ink text-muted-foreground",
+};
+
+interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   status: Status;
-  tone?: "solid" | "soft";
+  tone?: "solid" | "soft" | "stamp";
   size?: "sm" | "stamp";
-  className?: string;
+  "data-stamp"?: string;
+  "data-stamp-ghost"?: string;
 }
 
 /** Verdict word plus icon. Colour is the third signal, never the only one. */
-export function StatusBadge({ status, tone = "soft", size = "sm", className }: StatusBadgeProps) {
+export function StatusBadge({ status, tone = "soft", size = "sm", className, ...rest }: StatusBadgeProps) {
   const { word, icon } = META[status];
   return (
     <span
+      {...rest}
       className={cn(
         "inline-flex w-fit shrink-0 items-center rounded-sm font-bold uppercase",
-        tone === "solid" ? SOLID[status] : SOFT[status],
+        tone === "solid" ? SOLID[status] : tone === "stamp" ? STAMP[status] : SOFT[status],
         size === "sm" && "h-6 gap-1 px-2 text-xs leading-4 tracking-[0.08em]",
-        size === "stamp" && "h-11 gap-2 px-3 text-[26px] leading-none tracking-[0.06em] sm:h-14 sm:px-4 sm:text-[34px]",
+        size === "stamp" && "h-12 gap-2 px-3.5 text-[28px] leading-none tracking-[0.08em] sm:h-[60px] sm:px-5 sm:text-[38px]",
         className,
       )}
     >

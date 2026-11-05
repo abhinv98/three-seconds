@@ -257,17 +257,15 @@ const REEL_COLUMNS = `r.id, r.owner_id, r.brand_id, r.filename, r.size_bytes, r.
 const REEL_FROM = `FROM reel r JOIN profile p ON p.user_id = r.owner_id LEFT JOIN brand b ON b.id = r.brand_id`;
 
 /** A creator's own Reels; for a brand, its own checks plus every Reel a creator has sent it. */
+export function reelScope(viewer: Member): { where: string; args: string[] } {
+  return viewer.brand
+    ? { where: "r.brand_id = ? AND (r.owner_id = ? OR r.sent_at IS NOT NULL)", args: [viewer.brand.id, viewer.user.id] }
+    : { where: "r.owner_id = ?", args: [viewer.user.id] };
+}
+
 export function reelsFor(viewer: Member): Promise<ReelRow[]> {
-  if (viewer.brand) {
-    return all<ReelRow>(
-      `SELECT ${REEL_COLUMNS} ${REEL_FROM}
-        WHERE r.brand_id = ? AND (r.owner_id = ? OR r.sent_at IS NOT NULL)
-        ORDER BY COALESCE(r.sent_at, r.created_at) DESC`,
-      viewer.brand.id,
-      viewer.user.id,
-    );
-  }
-  return all<ReelRow>(`SELECT ${REEL_COLUMNS} ${REEL_FROM} WHERE r.owner_id = ? ORDER BY r.created_at DESC`, viewer.user.id);
+  const { where, args } = reelScope(viewer);
+  return all<ReelRow>(`SELECT ${REEL_COLUMNS} ${REEL_FROM} WHERE ${where} ORDER BY COALESCE(r.sent_at, r.created_at) DESC`, ...args);
 }
 
 /** The rule: you see a Reel if you checked it, or if a creator sent it to your brand. */
@@ -281,9 +279,9 @@ export async function reelFor(viewer: Member, id: string): Promise<(ReelRow & { 
   return { ...row, report: row.report ? (JSON.parse(row.report) as Report) : null };
 }
 
-export async function startReel(viewer: Member, id: string, filename: string, sizeBytes: number, videoUrl: string) {
+export async function startReel(viewer: Member, id: string, filename: string, sizeBytes: number, videoUrl: string, poster: string | null = null) {
   await run(
-    "INSERT INTO reel (id, owner_id, brand_id, filename, size_bytes, status, created_at, video_url) VALUES (?, ?, ?, ?, ?, 'checking', ?, ?)",
+    "INSERT INTO reel (id, owner_id, brand_id, filename, size_bytes, status, created_at, video_url, poster) VALUES (?, ?, ?, ?, ?, 'checking', ?, ?, ?)",
     id,
     viewer.user.id,
     viewer.brand?.id ?? null,
@@ -291,6 +289,7 @@ export async function startReel(viewer: Member, id: string, filename: string, si
     sizeBytes,
     now(),
     videoUrl,
+    poster,
   );
 }
 

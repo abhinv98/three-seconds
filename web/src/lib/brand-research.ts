@@ -1,3 +1,4 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import { askForJson } from "@/lib/claude";
 import type { SiteHints } from "@/lib/site-hints";
 
@@ -14,6 +15,7 @@ export interface Source {
 export interface BrandResearch {
   name: string;
   tagline: string;
+  summary: string;
   logo_url: string;
   colors: { hex: string; name: string }[];
   fonts: string[];
@@ -37,10 +39,11 @@ const SOURCE = {
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["name", "tagline", "logo_url", "colors", "fonts", "products", "market", "market_sources", "mentions"],
+  required: ["name", "tagline", "summary", "logo_url", "colors", "fonts", "products", "market", "market_sources", "mentions"],
   properties: {
     name: { type: "string" },
     tagline: { type: "string" },
+    summary: { type: "string" },
     logo_url: { type: "string", description: "Direct https link to the logo or app icon image, or empty" },
     colors: {
       type: "array",
@@ -73,8 +76,9 @@ function prompt(name: string, website: string, hints: SiteHints | null) {
 Research the brand on the web and return:
 - name: the brand's name, written the way the brand writes it.
 - tagline: its own one-line description of itself, from its site.
+- summary: two or three plain sentences for a brand manager: what the brand is, what it sells, and how it presents itself.
 - logo_url: a direct link to an image file of its official logo or app icon (square if there is one; PNG, SVG or WebP), from its own domain, its press kit or Wikimedia Commons. Leave it empty if you can't find a direct image link. Never a web page.
-- colors: 2 to 5 brand colours as #rrggbb with plain names. Main accent first, darkest last: fixes are drawn in those two. Prefer the brand's guidelines or press kit; otherwise judge from the site hints below.
+- colors: 2 to 5 brand colours as #rrggbb with plain names. Main accent first, darkest last: fixes are drawn in those two. Prefer the brand's guidelines or press kit, then logoColors from the hints below: those are exact, read from the site's own icon file. The hints' colors are what its CSS uses most, mostly interface colours, so only list one if the logo or a guideline backs it or it's plainly the site's main accent. A link colour or an error red isn't a brand colour; two right colours beat five doubtful ones.
 - fonts: the typefaces its site or guidelines use, most important first (1 to 3 names, no generic families).
 - products: up to 8 product or feature names a Reel might show or say.
 - market: who the brand sells to, in one or two plain sentences.
@@ -107,6 +111,7 @@ export function tidyResearch(raw: Partial<BrandResearch>): BrandResearch {
   return {
     name: clean(raw.name, 80),
     tagline: clean(raw.tagline, 160),
+    summary: clean(raw.summary, 600),
     logo_url: httpUrl(clean(raw.logo_url, 1000)),
     colors: (raw.colors ?? [])
       .map((c) => ({ hex: clean(c?.hex, 7).toLowerCase(), name: clean(c?.name, 30) }))
@@ -129,13 +134,28 @@ export interface ResearchResult {
   searches: number;
 }
 
-export async function researchBrand(name: string, website: string, hints: SiteHints | null): Promise<ResearchResult> {
+/** What the research is doing right now, for the brand folder's reading view. */
+function describeBlock(block: Anthropic.Beta.BetaContentBlock): string | null {
+  if (block.type !== "server_tool_use") return null;
+  if (block.name === "web_search" && typeof block.input.query === "string") return `Searching the web for "${clean(block.input.query, 90)}"`;
+  if (block.name === "web_fetch" && typeof block.input.url === "string") {
+    const url = httpUrl(block.input.url);
+    return url ? `Opening ${new URL(url).hostname.replace(/^www\./, "")}` : null;
+  }
+  return null;
+}
+
+export async function researchBrand(name: string, website: string, hints: SiteHints | null, onStep?: (step: string) => void): Promise<ResearchResult> {
   const { data, costUsd, searches } = await askForJson<Partial<BrandResearch>>({
     content: prompt(name, website, hints),
     schema: SCHEMA,
     effort: "medium",
     searches: 6,
     fetches: 4,
+    onBlock: (block) => {
+      const step = describeBlock(block);
+      if (step) onStep?.(step);
+    },
   });
   return { research: tidyResearch(data), costUsd, searches };
 }

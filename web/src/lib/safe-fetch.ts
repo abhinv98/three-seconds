@@ -58,7 +58,18 @@ const USER_AGENT = "Mozilla/5.0 (compatible; ThreeSecondsBot/1.0; +https://three
 
 export async function safeFetch(
   address: string,
-  { maxBytes, timeoutMs = 8000, accept = "*/*" }: { maxBytes: number; timeoutMs?: number; accept?: string },
+  {
+    maxBytes,
+    timeoutMs = 8000,
+    accept = "*/*",
+    truncate = false,
+  }: {
+    maxBytes: number;
+    timeoutMs?: number;
+    accept?: string;
+    /** Over maxBytes, keep the first part instead of failing: a page's <head> is at its start. */
+    truncate?: boolean;
+  },
 ): Promise<Fetched> {
   let url = new URL(address);
   const signal = AbortSignal.timeout(timeoutMs);
@@ -75,7 +86,7 @@ export async function safeFetch(
       await response.body?.cancel();
       throw new Error(`${url.hostname} answered HTTP ${response.status}.`);
     }
-    if (Number(response.headers.get("content-length") ?? 0) > maxBytes) {
+    if (!truncate && Number(response.headers.get("content-length") ?? 0) > maxBytes) {
       await response.body?.cancel();
       throw new Error(`${url.href} is larger than ${maxBytes} bytes.`);
     }
@@ -88,6 +99,7 @@ export async function safeFetch(
       size += value.byteLength;
       if (size > maxBytes) {
         await reader.cancel();
+        if (truncate) break;
         throw new Error(`${url.href} is larger than ${maxBytes} bytes.`);
       }
       chunks.push(value);

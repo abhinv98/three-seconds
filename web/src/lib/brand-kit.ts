@@ -1,5 +1,6 @@
 import { researchBrand, type BrandResearch, type Source } from "@/lib/brand-research";
-import { jobStore } from "@/lib/jobs";
+import { get, run } from "@/lib/db";
+import { jobStore, STALE_MS } from "@/lib/jobs";
 import { safeFetch } from "@/lib/safe-fetch";
 import { readSiteHints, type SiteHints } from "@/lib/site-hints";
 
@@ -12,6 +13,8 @@ export interface BrandKitData {
   /** The website's host, like grok.com. */
   site: string;
   tagline: string;
+  /** Two or three sentences. Kits read before this existed don't have it. */
+  summary?: string;
   /** The logo as a data: URL, or empty when none could be fetched. */
   logo: string;
   /** At least two; the accent first and the darkest last (the fixes are drawn in those two). */
@@ -30,6 +33,7 @@ export interface BrandKitData {
 export const brandKits = jobStore<BrandKitData>("brand_kit", "brand_id", "kit");
 
 const LOGO_BYTES = 400_000;
+const MAX_STEPS = 24;
 
 /** What the bytes are, from their first few, so an icon served as application/octet-stream still counts. */
 function imageType(body: Buffer, declared: string): string | null {
@@ -43,11 +47,71 @@ function imageType(body: Buffer, declared: string): string | null {
   return null;
 }
 
-async function firstImage(candidates: string[]): Promise<string> {
-  for (const url of new Set(candidates.filter(Boolean))) {
-    const fetched = await safeFetch(url, { maxBytes: LOGO_BYTES, accept: "image/*" }).catch(() => null);
+/** Width and height from a raster image's header. Null for SVG, or a file too short or odd to tell. */
+export function imageSize(body: Buffer, type: string): { w: number; h: number } | null {
+  try {
+    if (type === "image/png") return { w: body.readUInt32BE(16), h: body.readUInt32BE(20) };
+    if (type === "image/gif") return { w: body.readUInt16LE(6), h: body.readUInt16LE(8) };
+    if (type === "image/x-icon") {
+      // The directory lists every size in the file; a width byte of 0 means 256.
+      let best = 0;
+      for (let i = 0; i < body.readUInt16LE(4); i++) best = Math.max(best, body[6 + i * 16] || 256);
+      return { w: best, h: best };
+    }
+    if (type === "image/webp") {
+      const kind = body.subarray(12, 16).toString("latin1");
+      if (kind === "VP8X") return { w: 1 + body.readUIntLE(24, 3), h: 1 + body.readUIntLE(27, 3) };
+      if (kind === "VP8 ") return { w: body.readUInt16LE(26) & 0x3fff, h: body.readUInt16LE(28) & 0x3fff };
+      if (kind === "VP8L") {
+        const bits = body.readUInt32LE(21);
+        return { w: (bits & 0x3fff) + 1, h: ((bits >> 14) & 0x3fff) + 1 };
+      }
+      return null;
+    }
+    if (type === "image/jpeg") {
+      for (let i = 2; i < body.length - 9; ) {
+        if (body[i] !== 0xff) return null;
+        const marker = body[i + 1];
+        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return { w: body.readUInt16BE(i + 7), h: body.readUInt16BE(i + 5) };
+        i += 2 + body.readUInt16BE(i + 2);
+      }
+    }
+  } catch {
+    // A truncated header: size unknown.
+  }
+  return null;
+}
+
+/** Sharp enough to show large on the brand folder's plate. */
+const SHARP_PX = 96;
+
+type Fetcher = (url: string, options: { maxBytes: number; accept: string }) => Promise<{ body: Buffer; contentType: string }>;
+
+/**
+ * The first candidate that's vector or sharp, else the largest one found. A site's social card is usually a banner with
+ * words on it, so it only counts when it's about square, and only with nothing else to show.
+ */
+export async function bestLogo(candidates: string[], socialImage: string | null, fetcher: Fetcher = safeFetch): Promise<string> {
+  let soft: { src: string; px: number } | null = null;
+  const read = async (url: string) => {
+    const fetched = await fetcher(url, { maxBytes: LOGO_BYTES, accept: "image/*" }).catch(() => null);
     const type = fetched ? imageType(fetched.body, fetched.contentType.toLowerCase()) : null;
-    if (fetched && type) return `data:${type};base64,${fetched.body.toString("base64")}`;
+    return fetched && type ? { type, body: fetched.body, src: `data:${type};base64,${fetched.body.toString("base64")}` } : null;
+  };
+  for (const url of new Set(candidates.filter(Boolean))) {
+    const image = await read(url);
+    if (!image) continue;
+    if (image.type === "image/svg+xml") return image.src;
+    const size = imageSize(image.body, image.type);
+    const px = size ? Math.min(size.w, size.h) : 0;
+    if (px >= SHARP_PX) return image.src;
+    if (!soft || px > soft.px) soft = { src: image.src, px };
+  }
+  if (soft) return soft.src;
+  if (socialImage) {
+    const image = await read(socialImage);
+    const size = image && imageSize(image.body, image.type);
+    if (image && size && size.w / size.h > 0.8 && size.w / size.h < 1.25) return image.src;
   }
   return "";
 }
@@ -84,7 +148,7 @@ const sixDigit = (hex: string | null | undefined) => {
 };
 
 /** The research's colours (or the site's when it has none), deduplicated, with the darkest moved last. */
-export function palette(colors: { hex: string; name: string }[], hints: SiteHints | null): { hex: string; name: string }[] {
+export function palette(colors: { hex: string; name: string }[], hints: Pick<SiteHints, "themeColor" | "colors"> | null): { hex: string; name: string }[] {
   const raw = colors.length
     ? colors
     : [
@@ -99,32 +163,79 @@ export function palette(colors: { hex: string; name: string }[], hints: SiteHint
   return [...rest, darkest];
 }
 
+export interface KitStep {
+  /** Seconds since the read started. */
+  s: number;
+  text: string;
+}
+
+/** What a read is doing, for the brand folder while it waits: a light row with no kit in it, so it can be polled. */
+export async function kitProgress(brandId: string): Promise<{ status: "reading" | "done" | "error"; started_at: string; steps: KitStep[]; error: string | null } | null> {
+  const row = await get<{ status: "reading" | "done" | "error"; started_at: string; progress: string | null; error: string | null }>(
+    "SELECT status, started_at, progress, error FROM brand_kit WHERE brand_id = ?",
+    brandId,
+  );
+  if (!row) return null;
+  const stale = row.status === "reading" && Date.now() - Date.parse(row.started_at) > STALE_MS;
+  return {
+    status: stale ? "error" : row.status,
+    started_at: row.started_at,
+    steps: row.progress ? (JSON.parse(row.progress) as KitStep[]) : [],
+    error: stale ? "The read stopped before it finished." : row.error,
+  };
+}
+
+/** The read itself, with nothing saved: hints from the site, the web research, then the logo and the fonts. */
+export async function readBrandKit(brand: { name: string; website: string }, onStep: (text: string) => void = () => {}): Promise<{ kit: BrandKitData; costUsd: number }> {
+  const site = new URL(brand.website).hostname.replace(/^www\./, "");
+  onStep(`Reading ${site}'s homepage: its icons, theme colour and stylesheets`);
+  const hints = await readSiteHints(brand.website).catch(() => null);
+  onStep(
+    hints
+      ? `On the homepage: ${hints.icons.length} ${hints.icons.length === 1 ? "icon" : "icons"}, ${hints.colors.length} colours, ${hints.fonts.length} ${hints.fonts.length === 1 ? "typeface" : "typefaces"}`
+      : `${site} doesn't let us read its homepage, so this comes from the web`,
+  );
+  const { research, costUsd } = await researchBrand(brand.name, brand.website, hints, onStep);
+  onStep("Fetching the logo and checking the type");
+  const fonts = research.fonts.length ? research.fonts : (hints?.fonts.slice(0, 2) ?? []);
+  const [logo, webFonts] = await Promise.all([bestLogo([research.logo_url, ...(hints?.icons ?? [])], hints?.socialImage ?? null), onGoogleFonts(fonts)]);
+  return {
+    kit: {
+      name: research.name || brand.name,
+      site,
+      tagline: research.tagline || hints?.description || "",
+      summary: research.summary,
+      logo,
+      colors: palette(research.colors, hints),
+      fonts,
+      web_fonts: webFonts,
+      products: research.products,
+      market: research.market,
+      market_sources: research.market_sources,
+      mentions: research.mentions,
+      read_at: new Date().toISOString().slice(0, 10),
+    },
+    costUsd,
+  };
+}
+
 /** Reads the kit and saves it; never throws, a failure is saved on the row instead. Claim the row first. */
 export async function buildBrandKit(brand: { id: string; name: string; website: string }) {
+  const started = Date.now();
+  const steps: KitStep[] = [];
+  // Each step lands in its own write; a lost one only leaves the log a line short.
+  let writes = Promise.resolve();
+  const note = (text: string) => {
+    steps.push({ s: Math.round((Date.now() - started) / 1000), text });
+    const progress = JSON.stringify(steps.slice(-MAX_STEPS));
+    writes = writes.then(() => run("UPDATE brand_kit SET progress = ? WHERE brand_id = ?", progress, brand.id)).catch(() => {});
+  };
   try {
-    const hints = await readSiteHints(brand.website).catch(() => null);
-    const { research, costUsd } = await researchBrand(brand.name, brand.website, hints);
-    const fonts = research.fonts.length ? research.fonts : (hints?.fonts.slice(0, 2) ?? []);
-    const [logo, webFonts] = await Promise.all([firstImage([research.logo_url, ...(hints?.icons ?? [])]), onGoogleFonts(fonts)]);
-    await brandKits.finish(
-      brand.id,
-      {
-        name: research.name || brand.name,
-        site: new URL(brand.website).hostname.replace(/^www\./, ""),
-        tagline: research.tagline || hints?.description || "",
-        logo,
-        colors: palette(research.colors, hints),
-        fonts,
-        web_fonts: webFonts,
-        products: research.products,
-        market: research.market,
-        market_sources: research.market_sources,
-        mentions: research.mentions,
-        read_at: new Date().toISOString().slice(0, 10),
-      },
-      costUsd,
-    );
+    const { kit, costUsd } = await readBrandKit(brand, note);
+    await writes;
+    await brandKits.finish(brand.id, kit, costUsd);
   } catch (error) {
+    await writes;
     await brandKits.fail(brand.id, error);
   }
 }

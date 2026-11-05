@@ -11,6 +11,10 @@ export interface SiteHints {
   themeColor: string | null;
   /** Icon and logo images the page links, biggest first. */
   icons: string[];
+  /** The page's social card. Usually not a logo, so it's only a last resort. */
+  socialImage: string | null;
+  /** The exact colours inside the site's own SVG icon, most used first. */
+  logoColors: string[];
   /** Hex colours by how often the page and its stylesheets use them, greys and pure white left out. */
   colors: { hex: string; uses: number }[];
   fonts: string[];
@@ -55,6 +59,9 @@ function satLight(hex: string) {
   return { s, l };
 }
 
+/** Icon fonts and the placeholders font loaders leave behind aren't a brand's typeface. */
+const NOT_A_TYPEFACE = /icon|awesome|glyph|symbol|placeholder|swiper|slick|judgeme|emoji/i;
+
 const GENERIC_FONTS = new Set([
   "inherit", "initial", "unset", "sans-serif", "serif", "monospace", "cursive", "fantasy", "system-ui", "ui-sans-serif",
   "ui-serif", "ui-monospace", "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto", "helvetica", "helvetica neue",
@@ -66,8 +73,15 @@ function countInto<K>(map: Map<K, number>, key: K, by = 1) {
   map.set(key, (map.get(key) ?? 0) + by);
 }
 
+/** The hex colours an SVG paints with, most used first. url(#abc) is a reference, not a colour. */
+export function svgColors(svg: string): string[] {
+  const uses = new Map<string, number>();
+  for (const m of svg.matchAll(/(?<!url\()#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-zA-Z_-])/g)) countInto(uses, expand(m[0]));
+  return [...uses].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([hex]) => hex);
+}
+
 export async function readSiteHints(website: string): Promise<SiteHints | null> {
-  const page = await safeFetch(website, { maxBytes: PAGE_BYTES, accept: "text/html" }).catch(() => null);
+  const page = await safeFetch(website, { maxBytes: PAGE_BYTES, accept: "text/html", truncate: true }).catch(() => null);
   if (!page || !page.contentType.includes("html")) return null;
   const html = page.body.toString("utf8");
   const base = page.url;
@@ -86,7 +100,8 @@ export async function readSiteHints(website: string): Promise<SiteHints | null> 
     if (!/(^|\s)(icon|apple-touch-icon|apple-touch-icon-precomposed|mask-icon)(\s|$)/.test(rel) || !link.href) continue;
     const url = resolve(link.href, base);
     if (!url) continue;
-    const size = /\.svg(\?|$)/i.test(url) ? 10_000 : Math.max(0, ...(link.sizes ?? "").split(/\s+/).map((s) => parseInt(s, 10) || 0));
+    // A mask icon is a one-colour silhouette for Safari's tabs: the right shape, the wrong look, so it ranks low.
+    const size = rel.includes("mask-icon") ? 40 : /\.svg(\?|$)/i.test(url) ? 10_000 : Math.max(0, ...(link.sizes ?? "").split(/\s+/).map((s) => parseInt(s, 10) || 0));
     icons.push({ url, size: size || (rel.includes("apple") ? 180 : 32) });
   }
   const manifestHref = links.find((l) => (l.rel ?? "").toLowerCase() === "manifest")?.href;
@@ -106,10 +121,7 @@ export async function readSiteHints(website: string): Promise<SiteHints | null> 
     }
   }
   const ogImage = meta("og:image");
-  if (ogImage) {
-    const url = resolve(ogImage, base);
-    if (url) icons.push({ url, size: 1 }); // a social card, usually not the logo: last resort
-  }
+  const socialImage = ogImage ? resolve(ogImage, base) : null;
 
   // Colours and typefaces: inline styles plus the first few stylesheets.
   let css = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]).join("\n");
@@ -143,13 +155,19 @@ export async function readSiteHints(website: string): Promise<SiteHints | null> 
     if (first && !first.startsWith("var(") && !GENERIC_FONTS.has(first.toLowerCase())) countInto(fonts, first, 1);
   }
 
+  const rankedIcons = [...new Map(icons.sort((a, b) => b.size - a.size).map((i) => [i.url, i])).values()];
+  const svgIcon = rankedIcons.find((i) => i.size === 10_000)?.url;
+  const svg = svgIcon ? await safeFetch(svgIcon, { maxBytes: 400_000, accept: "image/*" }).catch(() => null) : null;
+
   return {
     url: base,
     title: decode(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "").slice(0, 200),
     description: (meta("description") || meta("og:description")).slice(0, 300),
     themeColor: themeColor && /^#[0-9a-f]{3,8}$/i.test(themeColor) ? themeColor.toLowerCase() : null,
-    icons: [...new Map(icons.sort((a, b) => b.size - a.size).map((i) => [i.url, i])).keys()].slice(0, 6),
+    icons: rankedIcons.map((i) => i.url).slice(0, 6),
+    socialImage,
+    logoColors: svg ? svgColors(svg.body.toString("utf8")) : [],
     colors: palette,
-    fonts: [...fonts].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([f]) => f),
+    fonts: [...fonts].filter(([f]) => !NOT_A_TYPEFACE.test(f)).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([f]) => f),
   };
 }

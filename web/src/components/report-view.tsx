@@ -13,17 +13,32 @@ import { bySeverity, type Report } from "@/lib/report";
 import { useStoredReport } from "@/lib/report-store";
 import { spokenMarkers, timelineSummary } from "@/lib/summary";
 
-/** embedded: inside a page that already has its <main> (the dashboard), so the report is a plain block. */
-export function ReportView({ id, report: given, embedded = false }: { id: string; report?: Report; embedded?: boolean }) {
+// Fixed locale and zone: the server and the browser have to print the same text, or hydration fails.
+const GENERATED = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" });
+
+interface ReportViewProps {
+  id: string;
+  report?: Report;
+  /** Inside a page that already has its <main> (the dashboard), so the report is a plain block. */
+  embedded?: boolean;
+  /** The verdict stamps down the first time this browser sees this report. */
+  revealKey?: string;
+  /** Right under the verdict. */
+  afterVerdict?: React.ReactNode;
+  /** At the top of the column beside the video. */
+  aside?: React.ReactNode;
+}
+
+export function ReportView({ id, report: given, embedded = false, revealKey, afterVerdict, aside }: ReportViewProps) {
   const stored = useStoredReport(id);
   const report = given ?? stored;
   if (report === undefined) return <ReportSkeleton />;
   if (report === null) return <ReportMissing />;
   if (report.status === "error") return <ReportFailed />;
-  return <ReportBody report={report} embedded={embedded} />;
+  return <ReportBody report={report} embedded={embedded} revealKey={revealKey} afterVerdict={afterVerdict} aside={aside} />;
 }
 
-function ReportBody({ report, embedded }: { report: Report; embedded: boolean }) {
+function ReportBody({ report, embedded, revealKey, afterVerdict, aside }: { report: Report; embedded: boolean } & Pick<ReportViewProps, "revealKey" | "afterVerdict" | "aside">) {
   const Root = embedded ? "div" : "main";
   const videoRef = useRef<HTMLVideoElement>(null);
   const [time, setTime] = useState(0);
@@ -74,7 +89,8 @@ function ReportBody({ report, embedded }: { report: Report; embedded: boolean })
 
   return (
     <Root id={embedded ? undefined : "main"} className={embedded ? undefined : "mx-auto max-w-[1120px] px-4 pt-6 pb-16 sm:px-6 sm:pt-8"}>
-      <VerdictBanner report={report} onSeek={seek} />
+      <VerdictBanner report={report} onSeek={seek} revealKey={revealKey} />
+      {afterVerdict ? <div className="mt-4">{afterVerdict}</div> : null}
 
       <div className="mt-6 grid gap-8 min-[900px]:mt-8 min-[900px]:grid-cols-[340px_minmax(0,1fr)] min-[900px]:gap-10">
         <section aria-label="Video and timeline" className="min-w-0 min-[900px]:sticky min-[900px]:top-6 min-[900px]:self-start">
@@ -118,6 +134,7 @@ function ReportBody({ report, embedded }: { report: Report; embedded: boolean })
         </section>
 
         <div className="flex min-w-0 flex-col gap-10">
+          {aside}
           <section aria-labelledby="checks-heading">
             <div className="flex items-baseline justify-between gap-4 border-b border-border pb-3">
               <h2 id="checks-heading" className="ts-title">
@@ -168,7 +185,7 @@ function ReportFooter({ report }: { report: Report }) {
         <dd>
           {Number.isNaN(generated.getTime())
             ? report.generated_at
-            : generated.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
+            : `${GENERATED.format(generated)} IST`}
         </dd>
       </dl>
       <p className="ts-caption mt-3 text-muted-foreground">

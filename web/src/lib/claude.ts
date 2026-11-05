@@ -26,6 +26,7 @@ export async function askForJson<T>({
   searches = 0,
   fetches = 0,
   model = MODEL,
+  onBlock,
 }: {
   content: Anthropic.Beta.BetaContentBlockParam[] | string;
   schema: Record<string, unknown>;
@@ -35,6 +36,8 @@ export async function askForJson<T>({
   /** Page fetches allowed (0 for none). */
   fetches?: number;
   model?: typeof MODEL | typeof CHEAP_MODEL;
+  /** Called with each finished block of the answer as it streams: a search being made, a page being opened. */
+  onBlock?: (block: Anthropic.Beta.BetaContentBlock) => void;
 }): Promise<Answer<T>> {
   const client = new Anthropic();
   const PRICE = PRICES[model];
@@ -47,16 +50,16 @@ export async function askForJson<T>({
   let searched = 0;
   // A long turn with server tools can pause; sending it back lets the server carry on.
   for (let turn = 0; turn < 4; turn++) {
-    const message = await client.beta.messages
-      .stream({
-        model,
-        max_tokens: 32000,
-        ...(model === MODEL ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
-        ...(tools.length ? { tools } : {}),
-        output_config: { effort, format: { type: "json_schema", schema } },
-        messages,
-      })
-      .finalMessage();
+    const stream = client.beta.messages.stream({
+      model,
+      max_tokens: 32000,
+      ...(model === MODEL ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
+      ...(tools.length ? { tools } : {}),
+      output_config: { effort, format: { type: "json_schema", schema } },
+      messages,
+    });
+    if (onBlock) stream.on("contentBlock", onBlock);
+    const message = await stream.finalMessage();
     const u = message.usage;
     searched += u.server_tool_use?.web_search_requests ?? 0;
     costUsd +=

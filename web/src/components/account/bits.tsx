@@ -44,12 +44,14 @@ export function Notice({ tone = "pass", children }: { tone?: "pass" | "fail"; ch
   );
 }
 
-export function ReelStatus({ reel }: { reel: Pick<ReelRow, "status" | "verdict"> }) {
-  if (reel.status === "checking") return <StatusBadge status="running" tone="soft" size="sm" />;
+/** solid: for on top of a thumbnail, where a soft tint would disappear into the picture. */
+export function ReelStatus({ reel, solid }: { reel: Pick<ReelRow, "status" | "verdict">; solid?: boolean }) {
+  const tone = solid ? "solid" : "soft";
+  if (reel.status === "checking") return <StatusBadge status="running" tone={tone} size="sm" />;
   if (reel.status === "error" || !reel.verdict) {
     return <span className="inline-flex h-6 items-center rounded-[4px] bg-muted px-2 text-[12px] font-semibold text-muted-foreground">Didn&rsquo;t finish</span>;
   }
-  return <StatusBadge status={reel.verdict === "PASS" ? "pass" : reel.verdict === "FAIL" ? "fail" : "review"} tone="soft" size="sm" />;
+  return <StatusBadge status={reel.verdict === "PASS" ? "pass" : reel.verdict === "FAIL" ? "fail" : "review"} tone={tone} size="sm" />;
 }
 
 export function ReelTable({ reels, brandView }: { reels: ReelRow[]; brandView: boolean }) {

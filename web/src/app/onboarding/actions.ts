@@ -55,5 +55,5 @@ export async function finishOnboarding(_: OnboardingState, form: FormData): Prom
     return { error: "Pick brand or creator first." };
   }
 
-  redirect(next === "/dashboard" ? "/dashboard?welcome=1" : next);
+  redirect(next);
 }
