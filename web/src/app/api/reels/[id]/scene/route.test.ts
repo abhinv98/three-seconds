@@ -3,17 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getViewer = vi.fn();
 const reelFor = vi.fn();
 const job = vi.fn();
+const reelIdForShare = vi.fn();
 
 vi.mock("@/lib/account", () => ({ getViewer, reelFor }));
 vi.mock("@/lib/scene-job", () => ({ reelScenes: { get: job } }));
+vi.mock("@/lib/review", () => ({ reelIdForShare }));
 
 const { GET } = await import("./route");
-const call = () => GET(new Request("http://x/api/reels/r1/scene"), { params: Promise.resolve({ id: "r1" }) });
+const call = (query = "") => GET(new Request(`http://x/api/reels/r1/scene${query}`), { params: Promise.resolve({ id: "r1" }) });
 
 beforeEach(() => {
   vi.clearAllMocks();
   getViewer.mockResolvedValue({ profile: {} });
   reelFor.mockResolvedValue({ id: "r1" });
+  reelIdForShare.mockResolvedValue(null);
 });
 
 describe("GET /api/reels/[id]/scene", () => {
@@ -55,5 +58,25 @@ describe("GET /api/reels/[id]/scene", () => {
     response = await call();
     expect(response.status).toBe(404);
     expect((await response.json()).status).toBe("none");
+  });
+
+  it("?share= opens this Reel with no account, and a browser may not keep it past a revoke", async () => {
+    getViewer.mockResolvedValue(null);
+    reelIdForShare.mockResolvedValue("r1");
+    job.mockResolvedValue({ status: "done", data: { version: 1 }, error: null, started_at: "t" });
+    const response = await call("?share=good");
+    expect(reelIdForShare).toHaveBeenCalledWith("good");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(await response.json()).toEqual({ version: 1 });
+  });
+
+  it("a token for another Reel, or none that exists, opens nothing even when signed in", async () => {
+    for (const reel of ["r2", null]) {
+      reelIdForShare.mockResolvedValue(reel);
+      expect((await call("?share=bad")).status).toBe(404);
+    }
+    expect((await call("?share=")).status).toBe(404);
+    expect(job).not.toHaveBeenCalled();
   });
 });
