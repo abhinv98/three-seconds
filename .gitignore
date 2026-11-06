@@ -32,10 +32,8 @@ Thumbs.db
 /worker/bin/
 /worker/shared/
 
-# reels used for testing, and rendered demo films
+# reels used for testing
 /testreels/
-/brag-output*/
 
-# tool config and the agent notes next dev writes, not part of the project
-/.impeccable/
+# the agent notes next dev writes, not part of the project
 /web/AGENTS.md

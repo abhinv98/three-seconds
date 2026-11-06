@@ -76,7 +76,7 @@ function asciiFrames(img: HTMLImageElement): string[] {
   for (let f = 0; f < FRAMES; f++) {
     octx.fillStyle = "#121212";
     octx.fillRect(0, 0, SPRITE_W, SPRITE_H);
-    octx.font = "600 7px ui-monospace, Menlo, monospace"; // taste-skill-ignore: canvas glyphs, not page text
+    octx.font = "600 7px ui-monospace, Menlo, monospace"; // canvas glyphs, not page text
     octx.textBaseline = "top";
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
